@@ -1,22 +1,24 @@
 #include <iostream>
 #include <GL\glew.h>
 #include "window.hpp"
-
-#ifdef _DEBUG
-#define DPRINT(x) std::cout << x
-#else
-#define DPRINT(x)
-#endif
+#include "heightmap.hpp"
 
 
-int main() {
-	Window::open();
+int main()
+{
+	Window::open(800, 800);
 
-	while (!Window::shouldClose()) {
+	Heightmap hm;
+	hm.generate();
 
+
+	while (!Window::shouldClose())
+	{
+		hm.update();
+		hm.draw();
 		Window::update();
 	}
+	Window::close();
 
 	return 0;
-
 }

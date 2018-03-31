@@ -6,8 +6,8 @@
 #include <string>
 #include "timer.hpp"
 
-namespace Window {
-
+namespace Window
+{
 	bool isInitialized();
 	void open(int width = 1280, int height = 720);
 	//void open();

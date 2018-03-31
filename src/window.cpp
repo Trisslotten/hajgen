@@ -6,14 +6,17 @@
 #include <glm/glm.hpp>
 #include <string>
 
-namespace {
+namespace
+{
 	std::unordered_map<GLFWwindow*, glm::vec2 > scrolls;
 
-	void scrollCallback(GLFWwindow* window, double x, double y) {
+	void scrollCallback(GLFWwindow* window, double x, double y)
+	{
 		scrolls[window] += glm::vec2(x, y);
 	}
 
-	void resizeCallback(GLFWwindow* window, int width, int height) {
+	void resizeCallback(GLFWwindow* window, int width, int height)
+	{
 		//height = width * 9.0 / 16.0;
 		//glfwSetWindowSize(window, width, height);
 		glViewport(0, 0, (GLsizei)width, (GLsizei)height);
@@ -27,23 +30,29 @@ namespace {
 	std::string title;
 	glm::vec2 last_mouse_pos;
 	glm::dvec2 mouse_pos;
-	
-	void pollEvents() {
+
+	void pollEvents()
+	{
 		glfwPollEvents();
 	}
-	void swapBuffers() {
+	void swapBuffers()
+	{
 		glfwSwapBuffers(window);
 	}
-	void updateMousepos() {
+	void updateMousepos()
+	{
 		last_mouse_pos = mouse_pos;
 		glfwGetCursorPos(window, &mouse_pos.x, &mouse_pos.y);
 	}
-	void updateScrolls() {
+	void updateScrolls()
+	{
 		scroll = scrolls[window];
 		scrolls[window] = glm::vec2(0, 0);
 	}
-	void updateTitle() {
-		if (frame_timer.elapsed() >= 0.5) {
+	void updateTitle()
+	{
+		if (frame_timer.elapsed() >= 0.5)
+		{
 			double elapsed = frame_timer.restart();
 			double fps = frames / elapsed;
 
@@ -57,13 +66,15 @@ namespace {
 
 
 
-bool Window::isInitialized() {
+bool Window::isInitialized()
+{
 	if (window)
 		return true;
 	else
 		return false;
 }
-void Window::open(int width, int height) {
+void Window::open(int width, int height)
+{
 	if (window)
 		return;
 
@@ -79,13 +90,15 @@ void Window::open(int width, int height) {
 	//glfwWindowHint(GLFW_SAMPLES, 8);
 
 	window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
-	if (!window) {
+	if (!window)
+	{
 		glfwTerminate();
 		exit(EXIT_FAILURE);
 	}
 	glfwMakeContextCurrent(window);
 	GLenum err = glewInit();
-	if (err != GLEW_OK) {
+	if (err != GLEW_OK)
+	{
 		std::cout << "glewInit failed: " << std::string((const char*)glewGetErrorString(err)) << "\n";
 		std::cin.ignore();
 		exit(1);
@@ -98,25 +111,29 @@ void Window::open(int width, int height) {
 	glfwSwapInterval(1);
 
 	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_CULL_FACE);
+	//glEnable(GL_CULL_FACE);
 }
 
-void Window::showCursor(bool val) {
+void Window::showCursor(bool val)
+{
 	if (val)
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	else
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
-void Window::close() {
+void Window::close()
+{
 	glfwTerminate();
 }
 
-GLFWwindow * Window::getGLFWWindow() {
+GLFWwindow * Window::getGLFWWindow()
+{
 	return window;
 }
 
-void Window::update() {
+void Window::update()
+{
 	updateTitle();
 
 	updateScrolls();
@@ -128,31 +145,37 @@ void Window::update() {
 	pollEvents();
 }
 
-bool Window::shouldClose() {
+bool Window::shouldClose()
+{
 	if (!window)
 		return true;
 	return glfwWindowShouldClose(window);
 }
 
-bool Window::mouseButtonDown(int button) {
+bool Window::mouseButtonDown(int button)
+{
 	return glfwGetMouseButton(window, button) == GLFW_PRESS;
 }
 
-bool Window::keyDown(int key) {
+bool Window::keyDown(int key)
+{
 	return GLFW_PRESS == glfwGetKey(window, key);
 }
 
-glm::vec2 Window::mouseMovement() {
+glm::vec2 Window::mouseMovement()
+{
 	glm::vec2 pos = mousePosition();
 	glm::vec2 result = pos - last_mouse_pos;
 	return result;
 }
 
-glm::vec2 Window::mousePosition() {
+glm::vec2 Window::mousePosition()
+{
 	return glm::vec2(mouse_pos);
 }
 
-glm::vec2 Window::size() {
+glm::vec2 Window::size()
+{
 	int width = 0, height = 0;
 	glfwGetFramebufferSize(window, &width, &height);
 	return glm::vec2(width, height);
