@@ -70,5 +70,11 @@
     <None Include="testfrag.glsl">
       <Filter>Source Files\graphics\shaders</Filter>
     </None>
+    <None Include="testctrl.glsl">
+      <Filter>Source Files\graphics\shaders</Filter>
+    </None>
+    <None Include="testeval.glsl">
+      <Filter>Source Files\graphics\shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

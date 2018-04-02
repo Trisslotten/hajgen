@@ -138,6 +138,8 @@
     <ClInclude Include="window.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="testctrl.glsl" />
+    <None Include="testeval.glsl" />
     <None Include="testfrag.glsl" />
     <None Include="testvert.glsl" />
   </ItemGroup>
