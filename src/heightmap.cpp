@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <glm\glm.hpp>
+#include <glm\gtx\quaternion.hpp>
 #include "window.hpp"
 
 size_t index(int x, int y, int size)
@@ -47,11 +48,17 @@ float Heightmap::heightAt(glm::vec3 pos)
 
 	float tx = glm::fract(size * pos.x);
 	float ty = glm::fract(size * pos.z);
-	
-	float xlerp1 = glm::mix(heightAt(x, y), heightAt(x + 1, y), tx);
-	float xlerp2 = glm::mix(heightAt(x, y+1), heightAt(x + 1, y+1), tx);
 
-	float height = glm::mix(xlerp1, xlerp2, ty);
+	float h00 = heightAt(x, y);
+	float h10 = heightAt(x+1, y);
+	float h01 = heightAt(x, y+1);
+	float h11 = heightAt(x+1, y+1);
+
+	float height = 0;
+	height += h00 * tx * ty;
+	height += h10 * (1.f-tx) * ty;
+	height += h01 * tx * (1.f - ty);
+	height += h11 * (1.f - tx)* (1.f - ty);
 
 	return height;
 }
@@ -100,18 +107,48 @@ void Heightmap::addHeightAt(glm::vec2 pos, float height)
 	addHeightAt(x+1, y+1, height * (1.f - tx)*(1.f - ty));
 }
 
+void Heightmap::addHeightAt(glm::vec2 pos, float radius, float height)
+{
+	int ir = size * radius / scale.x;
+
+	if (ir <= 0)
+		ir = 1;
+
+	float r = radius/ scale.x;
+	float area = r * r * glm::pi<float>();
+
+	float step = 1.0f;
+
+	float div = 1.f*area;
+	float k = 0.3*step * step * height / scale.y;
+	
+	glm::vec2 offset;
+	for (float iy = -ir; iy <= ir; iy += step)
+	{
+		offset.y = iy * radius / ir;
+		int width = glm::sqrt(ir*ir - iy * iy);
+		for (float ix = -width; ix <= width; ix += step)
+		{
+			offset.x = ix * radius / ir;
+			float h = k * glm::smoothstep(radius, 0.f, length(offset));
+			addHeightAt(pos + offset, h);
+		}
+	}
+}
+
 void Heightmap::generate()
 {
 	srand(time(NULL));
 
-	scale = glm::vec3(5, 5, 5);
+	scale = glm::vec3(10, 6, 10);
+
+	size = 1000;
 
 	FastNoise noise;
 	noise.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
+	noise.SetFractalOctaves(10);
+	noise.SetFrequency(1.0f / size);
 
-	noise.SetFrequency(0.001f);
-
-	size = 800;
 
 	noisemap = new float[size*size];
 	
@@ -170,7 +207,9 @@ void Heightmap::update()
 	while(erodeTimeAccum > 0.f)
 	{
 		dropErodeOnce();
-		erodeTimeAccum -= 1.0 / 10000;
+
+		const float erodeFreq = 700.0;
+		erodeTimeAccum -= 1.0 / erodeFreq;
 	}
 	if (timer.elapsed() > 1.0 / 15.0)
 	{
@@ -182,7 +221,18 @@ void Heightmap::update()
 
 void Heightmap::dropErodeOnce()
 {
+	float Kd = 1.0f;
+	float Kr = 1.0f;
+	float Kw = 0.01f;
+	float Kq = 0.1f;
+	float stepSize = 2.0f;
+	float minSlope = 0.2f;
+
+	Kq = 10; Kw = 0.001f; Kr = 0.9f; Kd = 0.02f; minSlope = 0.05f;
+
 	float sediment = 0.f;
+	float water = 0.2f;
+
 	glm::vec2 vel;
 	glm::vec2 pos;
 	pos.x = scale.x * float(rand()) / float(RAND_MAX);
@@ -190,37 +240,55 @@ void Heightmap::dropErodeOnce()
 
 	glm::vec3 n = normalAt(pos);
 
-	vel.x = n.x;
-	vel.y = n.z;
-	vel = normalize(vel);
 
-	for (int j = 0; j < 300; j++)
+	for (int j = 0; j < 200; j++)
 	{
-		n = normalAt(pos);
+		if (pos.x <= 0 || pos.x >= scale.x || pos.y <= 0 || pos.y >= scale.z)
+		{
+			break;
+		}
 
+		n = normalAt(pos);
 		glm::vec2 acc;
 		acc.x = n.x;
 		acc.y = n.z;
-		acc *= 0.5f;
 
-		vel += acc;
-		vel.x = n.x;
-		vel.y = n.z;
+		//vel += acc;
+		vel = glm::mix(vel, acc, 0.5f);
+		
 
-		float stolen = 0.01f * length(vel);
-		stolen = 0.0001f;
-		addHeightAt(pos, -stolen);
-		sediment += stolen;
+		if (length(vel) < 0.001)
+			break;
+
+		glm::vec2 next = pos + stepSize * scale.x * normalize(vel) / float(size);
+
+		float currHeight = heightAt(pos);
+		float nextHeight = heightAt(next);
 
 
-		float returned = 0.9f * sediment;
-		returned = 0.f;
-		//addHeightAt(pos, returned);
-		//sediment -= returned;
+		float capacity = water - sediment;
 
-		pos += 1.0f * scale.x * normalize(vel)/float(size);
+		float slope = (1 - n.y);
+		float val = length(vel);
+
+		
+		float eroded = 0.5f*capacity * glm::smoothstep(0.f, 10.f, val);
+		addHeightAt(pos, 0.05f, -eroded);
+		sediment += eroded;
+
+		//std::cout << sediment << "\n";
+
+		//addHeightAt(pos, 25.f * scale.x / size, -0.05f);
+
+		pos = next;
+
+		water *= 1.f - Kw;
 	}
-	//addHeightAt(pos, sediment);
+
+	if (sediment > 0)
+	{
+		addHeightAt(pos, 0.1f, sediment);
+	}
 }
 
 
@@ -236,7 +304,14 @@ void Heightmap::draw()
 
 	auto size = Window::size();
 	glm::mat4 proj = glm::perspective(glm::radians(60.f), size.x / size.y, 1.f, 500.f);
-	glm::mat4 view = glm::lookAt(glm::vec3(0,5,0), scale*0.5f, glm::vec3(0, 1, 0));
+
+	glm::vec3 target = 0.5f * scale;
+	glm::vec3 eye = glm::vec3(0, scale.y*1.5, 0);
+
+	eye = glm::quat(glm::vec3(0, 0.2*gt.elapsed(), 0)) * (eye - target) + target;
+
+
+	glm::mat4 view = glm::lookAt(eye, target, glm::vec3(0, 1, 0));
 	shader.uniform("proj_view", proj*view);
 
 	shader.uniform("scale", scale);

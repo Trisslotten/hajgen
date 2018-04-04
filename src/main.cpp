@@ -1,12 +1,13 @@
 #include <iostream>
 #include <GL\glew.h>
+#include <glm\gtc\constants.hpp>
 #include "window.hpp"
 #include "heightmap.hpp"
 
 
 int main()
 {
-	Window::open(800, 800);
+	Window::open(1280, 720);
 
 	Heightmap hm;
 	hm.generate();

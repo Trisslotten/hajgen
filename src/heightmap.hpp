@@ -24,6 +24,8 @@ class Heightmap
 	Timer timer;
 	Timer dtimer;
 
+	Timer gt;
+
 	double erodeTimeAccum = 0;
 
 	void dropErodeOnce();
@@ -39,6 +41,8 @@ class Heightmap
 
 	void addHeightAt(int x, int y, float height);
 	void addHeightAt(glm::vec2 pos, float height);
+
+	void addHeightAt(glm::vec2 pos, float radius, float height);
 
 
 public:
