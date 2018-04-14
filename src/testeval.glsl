@@ -8,8 +8,9 @@ out vec2 tetex;
 out vec3 teposition;
 
 uniform sampler2D heightmap;
-uniform vec3 scale;
+uniform vec3 size;
 uniform mat4 proj_view;
+
 
 uniform vec2 patchPos;
 uniform float patchSize;
@@ -18,12 +19,11 @@ uniform float patchSize;
 void main() {
 	vec2 pos = patchPos + patchSize * gl_TessCoord.xy;
 	
-	vec2 uv = pos / scale.xz;
+	vec2 uv = pos / size.xz;
 	tetex = uv;
 
 	teposition = pos.xyy;
-	teposition.y = scale.y * texture(heightmap, uv).r;
-
+	teposition.y = size.y * texture(heightmap, uv).r;
 
 	gl_Position = proj_view * vec4(teposition, 1.0);
 }

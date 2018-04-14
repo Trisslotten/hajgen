@@ -111,7 +111,7 @@ void Window::open(int width, int height)
 	glfwSwapInterval(1);
 
 	glEnable(GL_DEPTH_TEST);
-	//glEnable(GL_CULL_FACE);
+	glEnable(GL_CULL_FACE);
 }
 
 void Window::showCursor(bool val)
@@ -179,6 +179,11 @@ glm::vec2 Window::size()
 	int width = 0, height = 0;
 	glfwGetFramebufferSize(window, &width, &height);
 	return glm::vec2(width, height);
+}
+
+void Window::setTitle(const std::string & _title)
+{
+	title = _title;
 }
 
 /*

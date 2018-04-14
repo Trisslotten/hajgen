@@ -1,6 +1,5 @@
 #include "heightmap.hpp"
 #include <GL\glew.h>
-#include <glm\gtc\matrix_transform.hpp>
 #include "FastNoise.h"
 #include <iostream>
 #include <limits>
@@ -22,32 +21,53 @@ size_t index(int x, int y, int size)
 		y = size-1;
 	return x + y * size;
 }
+// [0,1]
+float random()
+{
+	return float(rand()) / float(RAND_MAX);
+}
+
+
+Heightmap::Heightmap()
+{
+	size = glm::vec3(25, 30, 25);
+
+	scale = 0.3f;
+
+	smoothInterval = 2000000UL;
+
+	resolution = 1024;
+	frequency = 500.5f / size.y;
+
+	camera.position = size * 0.5f;
+}
+
 
 void Heightmap::upload()
 {
-	for (int i = 0; i < size*size; i++)
+	for (int i = 0; i < resolution*resolution; i++)
 	{
-		heightmap[i] = glm::max(noisemap[i], 0.f) * float(std::numeric_limits<uint16_t>::max());
+		heightmap[i] = glm::clamp(noisemap[i], 0.f, 1.f) * float(std::numeric_limits<uint16_t>::max());
 	}
 	glBindTexture(GL_TEXTURE_2D, heightmapTex);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, size, GL_RED, GL_UNSIGNED_SHORT, &heightmap[0]);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, resolution, resolution, GL_RED, GL_UNSIGNED_SHORT, &heightmap[0]);
 
 }
 
 float Heightmap::heightAt(int x, int y)
 {
-	return scale.y * glm::max(noisemap[index(x, y, size)], 0.f);
+	return size.y * glm::max(noisemap[index(x, y, resolution)], 0.f);
 }
 
 float Heightmap::heightAt(glm::vec3 pos)
 {
-	pos /= scale;
+	pos /= size;
 
-	int x = size * pos.x;
-	int y = size * pos.z;
+	int x = resolution * pos.x;
+	int y = resolution * pos.z;
 
-	float tx = glm::fract(size * pos.x);
-	float ty = glm::fract(size * pos.z);
+	float tx = glm::fract(resolution * pos.x);
+	float ty = glm::fract(resolution * pos.z);
 
 	float h00 = heightAt(x, y);
 	float h10 = heightAt(x+1, y);
@@ -55,10 +75,10 @@ float Heightmap::heightAt(glm::vec3 pos)
 	float h11 = heightAt(x+1, y+1);
 
 	float height = 0;
-	height += h00 * tx * ty;
-	height += h10 * (1.f-tx) * ty;
-	height += h01 * tx * (1.f - ty);
-	height += h11 * (1.f - tx)* (1.f - ty);
+	height += h00 * (1.f - tx)* (1.f - ty);
+	height += h10 * tx * (1.f - ty);
+	height += h01 * (1.f - tx) * ty;
+	height += h11 * tx * ty;
 
 	return height;
 }
@@ -70,16 +90,16 @@ float Heightmap::heightAt(glm::vec2 pos)
 
 glm::vec3 Heightmap::normalAt(glm::vec2 pos)
 {
-	float t = 1.f / size;
+	float t = 1.f / resolution;
 
 	glm::vec4 h;
-	h[0] = heightAt(pos + glm::vec2(0, -1) / scale.x);
-	h[1] = heightAt(pos + glm::vec2(-1, 0) / scale.x);
-	h[2] = heightAt(pos + glm::vec2(1, 0) / scale.x);
-	h[3] = heightAt(pos + glm::vec2(0, 1) / scale.x);
+	h[0] = heightAt(pos + glm::vec2(0, -1) / size.x) / size.y;
+	h[1] = heightAt(pos + glm::vec2(-1, 0) / size.x) / size.y;
+	h[2] = heightAt(pos + glm::vec2(1, 0) / size.x) / size.y;
+	h[3] = heightAt(pos + glm::vec2(0, 1) / size.x) / size.y;
 
-	float ratioX = t * scale.x / (scale.y);
-	float ratioZ = t * scale.z / (scale.y);
+	float ratioX = t * size.x / (size.y);
+	float ratioZ = t * size.z / (size.y);
 	glm::vec3 n;
 	n.x = ratioX * (h[1] - h[2]);
 	n.z = ratioZ * (h[0] - h[3]);
@@ -89,80 +109,175 @@ glm::vec3 Heightmap::normalAt(glm::vec2 pos)
 
 void Heightmap::addHeightAt(int x, int y, float height)
 {
-	if(x >= 0 || x < size || y >= 0 || y < size)
-		noisemap[index(x, y, size)] += height;
+	if(x >= 0 && x < resolution && y >= 0 && y < resolution)
+		noisemap[index(x, y, resolution)] += height;
 }
 
 void Heightmap::addHeightAt(glm::vec2 pos, float height)
 {
-	int x = size * pos.x / scale.x;
-	int y = size * pos.y / scale.z;
+	int x = glm::floor(resolution * pos.x / size.x);
+	int y = glm::floor(resolution * pos.y / size.z);
 
-	float tx = glm::fract(size * pos.x);
-	float ty = glm::fract(size * pos.y);
+	height /= size.y;
 
-	addHeightAt(x, y, height * tx * ty);
-	addHeightAt(x+1, y, height * (1.f - tx) * ty);
-	addHeightAt(x, y+1, height * tx * (1.f - ty));
-	addHeightAt(x+1, y+1, height * (1.f - tx)*(1.f - ty));
+	float tx = glm::fract(resolution * pos.x / size.x);
+	float ty = glm::fract(resolution * pos.y / size.z);
+
+	
+	addHeightAt(x, y, height * (1.f - tx)*(1.f - ty));
+	addHeightAt(x, y+1, height * (1.f - tx) * ty);
+	addHeightAt(x+1, y, height * tx * (1.f - ty));
+	addHeightAt(x+1, y+1, height * tx * ty);
+	
 }
 
-void Heightmap::addHeightAt(glm::vec2 pos, float radius, float height)
+void Heightmap::addHeightAt(glm::vec2 pos, float radius, float volume)
 {
-	int ir = size * radius / scale.x;
+	float pixelArea = size.x*1.f / resolution;
+	pixelArea *= pixelArea;
+
+	float totalVolume = 0.f;
+
+
+	int ir = resolution * radius / size.x;
 
 	if (ir <= 0)
 		ir = 1;
 
-	float r = radius/ scale.x;
-	float area = r * r * glm::pi<float>();
 
 	float step = 1.0f;
 
-	float div = 1.f*area;
-	float k = 0.3*step * step * height / scale.y;
-	
+	float mult = 3.333333f * step*step * volume / (radius * radius * glm::pi<float>());
+
+	int px = glm::floor(resolution * pos.x / size.x);
+	int py = glm::floor(resolution * pos.y / size.z);
+
 	glm::vec2 offset;
-	for (float iy = -ir; iy <= ir; iy += step)
+	for (int iy = -ir-1; iy <= ir+1; iy += 1)
 	{
 		offset.y = iy * radius / ir;
 		int width = glm::sqrt(ir*ir - iy * iy);
-		for (float ix = -width; ix <= width; ix += step)
+		for (int ix = -width-1; ix <= width+1; ix += 1)
 		{
 			offset.x = ix * radius / ir;
-			float h = k * glm::smoothstep(radius, 0.f, length(offset));
-			addHeightAt(pos + offset, h);
+			float h = mult * glm::smoothstep(radius, 0.f, length(offset));
+
+			h = mult * (1.f - glm::clamp(length(offset)/radius, 0.f, 1.f));
+
+			addHeightAt(px + ix, py + iy, h / size.y);
+
+			totalVolume += h * pixelArea;
 		}
 	}
+
+	//std::cout << "totalVolume = " << totalVolume << "\n";
 }
+
+glm::vec2 Heightmap::gradientAt(glm::vec2 pos)
+{
+	return glm::vec2(
+		heightAt(pos - glm::vec2(0.01, 0)) - heightAt(pos + glm::vec2(0.01, 0)),
+		heightAt(pos - glm::vec2(0, 0.01)) - heightAt(pos + glm::vec2(0, 0.01))
+	);
+}
+
+
+
+void Heightmap::configureNoises()
+{
+	float mult = frequency * size.x / (resolution * scale);
+
+	ns.mountains.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
+	ns.mountains.SetFractalOctaves(20);
+	ns.mountains.SetFrequency(0.001f *  mult);
+
+
+	ns.fields.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
+	ns.fields.SetFractalOctaves(20);
+	ns.fields.SetFrequency(0.001f * mult);
+
+
+	ns.biome.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
+	ns.biome.SetFractalOctaves(2);
+	ns.biome.SetFrequency(0.0005f * mult);
+}
+
+float Heightmap::getBiome(float x, float y)
+{
+	float biome = 0.5f*ns.biome.GetNoise(x, y) + 0.5f;
+	biome = glm::smoothstep(0.1f, 0.8f, biome);
+	biome = glm::pow(biome, 0.5f);
+
+	return biome;
+}
+
+float Heightmap::fieldNoise(float x, float y)
+{
+	float fields = 0.5f*ns.fields.GetNoise(x, y) + 0.5f;
+	fields *= 0.3f;
+
+	return fields;
+}
+
+float Heightmap::mountainNoise(float x, float y)
+{
+	float mountains = 0.5f*ns.mountains.GetNoise(x, y) + 0.5f;
+	//mountains = pow(mountains, 2.f);
+	mountains = 1.f - glm::abs(2.f*mountains - 1.f);
+	float mountains2 = 0.5f*ns.mountains.GetNoise(-y, x) + 0.5f;
+	mountains *= 0.6;
+
+	return mountains + 0.5f*mountains2;
+}
+
+
+
+float Heightmap::getNoise(float x, float y)
+{
+	
+	float mountains = mountainNoise(x, y);
+
+	float fields = fieldNoise(x, y);
+
+	float biome = getBiome(x, y);
+
+	float result = glm::mix(mountains, fields, biome);
+
+	result += 0.2f;
+
+	//result = 0.01f * length(fgrad);
+
+	return result;
+}
+
+
 
 void Heightmap::generate()
 {
 	srand(time(NULL));
 
-	scale = glm::vec3(10, 6, 10);
 
-	size = 1000;
-
-	FastNoise noise;
-	noise.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
-	noise.SetFractalOctaves(10);
-	noise.SetFrequency(1.0f / size);
-
-
-	noisemap = new float[size*size];
+	noisemap = new float[resolution*resolution];
+	smoothTemp = new float[resolution*resolution];
 	
-	for (int y = 0; y < size; y++)
+
+	watermap = new float[resolution*resolution];
+	sedimentmap = new float[resolution*resolution];
+	
+	configureNoises();
+	
+
+	for (int iy = 0; iy < resolution; iy++)
 	{
-		for (int x = 0; x < size; x++)
+		for (int ix = 0; ix < resolution; ix++)
 		{
-			noisemap[x + y * size]= 0.5f*noise.GetNoise(x, y) + 0.5f;
+			noisemap[ix + iy * resolution]= scale * getNoise(ix, iy);
 		}
 	}
 
-	heightmap = new uint16_t[size*size];
+	heightmap = new uint16_t[resolution*resolution];
 
-	for (int i = 0; i < size*size; i++)
+	for (int i = 0; i < resolution*resolution; i++)
 	{
 		heightmap[i] = glm::max(noisemap[i]/ 100.f, 0.f) * float(std::numeric_limits<uint16_t>::max());
 	}
@@ -173,7 +288,7 @@ void Heightmap::generate()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16, size, size, 0, GL_RED, GL_UNSIGNED_SHORT, &heightmap[0]);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16, resolution, resolution, 0, GL_RED, GL_UNSIGNED_SHORT, &heightmap[0]);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 
@@ -203,126 +318,154 @@ void Heightmap::generate()
 void Heightmap::update()
 {
 	double dt = dtimer.restart();
-	erodeTimeAccum += dt;
-	while(erodeTimeAccum > 0.f)
-	{
-		dropErodeOnce();
 
-		const float erodeFreq = 700.0;
-		erodeTimeAccum -= 1.0 / erodeFreq;
-	}
-	if (timer.elapsed() > 1.0 / 15.0)
+	
+	const float erodeFPS = 24.f;
+	while(true)
 	{
-		timer.restart();
+		if (erodeTimer.elapsed() > 1.f / erodeFPS)
+		{
+			erodeTimer.restart();
+			break;
+		}
+		dropErodeOnce();
+		iterations++;
+		
+		if (iterations % smoothInterval == 0)
+		{
+			smoothen();
+		}
+		
+	}
+
+	camera.update(dt);
+
+	//camera.position.y = heightAt(camera.position - glm::vec3(2)) + 1.8f;
+
+	if (uploadTimer.elapsed() > 1.0 / 15.0)
+	{
+		uploadTimer.restart();
 		upload();
 	}
 }
 
 
+
 void Heightmap::dropErodeOnce()
 {
-	float Kd = 1.0f;
-	float Kr = 1.0f;
-	float Kw = 0.01f;
-	float Kq = 0.1f;
-	float stepSize = 2.0f;
-	float minSlope = 0.2f;
-
-	Kq = 10; Kw = 0.001f; Kr = 0.9f; Kd = 0.02f; minSlope = 0.05f;
-
-	float sediment = 0.f;
-	float water = 0.2f;
-
 	glm::vec2 vel;
 	glm::vec2 pos;
-	pos.x = scale.x * float(rand()) / float(RAND_MAX);
-	pos.y = scale.z * float(rand()) / float(RAND_MAX);
 
-	glm::vec3 n = normalAt(pos);
-
-
-	for (int j = 0; j < 200; j++)
+	bool done = false;
+	while (!done)
 	{
-		if (pos.x <= 0 || pos.x >= scale.x || pos.y <= 0 || pos.y >= scale.z)
+		float rn1 = random();
+		float rn2 = random();
+
+		float biome = getBiome(rn1 * resolution, rn2 * resolution);
+		//if (biome < 1.0)//random())
+			done = true;
+		pos.x = size.x * rn1;
+		pos.y = size.z * rn2;
+	}
+
+	float stepSize = 1.f;
+	float erosionRatio = 0.9f;
+	float depositRatio = 0.5f;
+
+
+	float sediment = 0.f;
+
+
+	for (int j = 0; j < 100; j++)
+	{
+		if (pos.x <= 0 || pos.x >= size.x || pos.y <= 0 || pos.y >= size.z)
 		{
 			break;
 		}
 
-		n = normalAt(pos);
-		glm::vec2 acc;
-		acc.x = n.x;
-		acc.y = n.z;
-
-		//vel += acc;
-		vel = glm::mix(vel, acc, 0.5f);
-		
-
-		if (length(vel) < 0.001)
-			break;
-
-		glm::vec2 next = pos + stepSize * scale.x * normalize(vel) / float(size);
+		glm::vec2 dir = gradientAt(pos);
+		vel += 0.5f * dir;
+		glm::vec2 step = stepSize * size.x * normalize(vel) / float(resolution);
+		vel *= 0.5f;
 
 		float currHeight = heightAt(pos);
-		float nextHeight = heightAt(next);
+		float nextHeight = heightAt(pos + step);
 
-
-		float capacity = water - sediment;
-
-		float slope = (1 - n.y);
-		float val = length(vel);
-
-		
-		float eroded = 0.5f*capacity * glm::smoothstep(0.f, 10.f, val);
-		addHeightAt(pos, 0.05f, -eroded);
+		float eroded = erosionRatio *glm::max(currHeight - nextHeight, 0.f) * glm::smoothstep(0.f,5.f, float(j));
+		eroded -= depositRatio * sediment;
+		addHeightAt(pos, -eroded);
 		sediment += eroded;
 
-		//std::cout << sediment << "\n";
-
-		//addHeightAt(pos, 25.f * scale.x / size, -0.05f);
-
-		pos = next;
-
-		water *= 1.f - Kw;
+		pos += step;
 	}
 
 	if (sediment > 0)
 	{
-		addHeightAt(pos, 0.1f, sediment);
+		//addHeightAt(pos, sediment);
 	}
+}
+
+void Heightmap::smoothen()
+{
+	float kernel[] = { 0.00135,	0.157305,	0.68269,	0.157305,	0.00135 };
+
+	for (int y = 0; y < resolution; y++)
+	{
+		for (int x = 0; x < resolution; x++) 
+		{
+			float smoothed = 0.f;
+			for (int i = 0; i < 5; i++)
+			{
+				int offset = i - 2;
+
+				smoothed += kernel[i] * noisemap[index(x, y + offset, resolution)];
+			}
+			smoothTemp[x + y * resolution] = smoothed;
+		}
+	}
+
+	std::swap(noisemap, smoothTemp);
+
+	for (int y = 0; y < resolution; y++)
+	{
+		for (int x = 0; x < resolution; x++)
+		{
+			float smoothed = 0.f;
+			for (int i = 0; i < 5; i++)
+			{
+				int offset = i - 2;
+
+				smoothed += kernel[i] * noisemap[index(x + offset, y, resolution)];
+			}
+			smoothTemp[x + y * resolution] = smoothed;
+		}
+	}
+
+	std::swap(noisemap, smoothTemp);
 }
 
 
 void Heightmap::draw()
 {
+	glClearColor(47.f / 255, 141.f / 255, 255.f / 255, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	shader.use();
 	shader.uniform("heightmap", 0);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, heightmapTex);
-
-
-	auto size = Window::size();
-	glm::mat4 proj = glm::perspective(glm::radians(60.f), size.x / size.y, 1.f, 500.f);
-
-	glm::vec3 target = 0.5f * scale;
-	glm::vec3 eye = glm::vec3(0, scale.y*1.5, 0);
-
-	eye = glm::quat(glm::vec3(0, 0.2*gt.elapsed(), 0)) * (eye - target) + target;
-
-
-	glm::mat4 view = glm::lookAt(eye, target, glm::vec3(0, 1, 0));
-	shader.uniform("proj_view", proj*view);
-
-	shader.uniform("scale", scale);
-
 	
+
+	shader.uniform("proj_view", camera.getViewProj());
+
+	shader.uniform("size", size);
 
 	glBindVertexArray(patch_vao);
 	glPatchParameteri(GL_PATCH_VERTICES, 4);
 
-	int patches = 50;
-	float patchSize = scale.x/patches;
+	int patches = 70;
+	float patchSize = size.x/patches;
 	shader.uniform("patchSize", patchSize);
 	for (int y = 0; y < patches; y++)
 	{

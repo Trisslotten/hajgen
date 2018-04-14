@@ -123,16 +123,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="camera.cpp" />
+    <ClCompile Include="clouds.cpp" />
     <ClCompile Include="FastNoise.cpp" />
     <ClCompile Include="heightmap.cpp" />
+    <ClCompile Include="input.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="shader.cpp" />
     <ClCompile Include="timer.cpp" />
     <ClCompile Include="window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="camera.hpp" />
+    <ClInclude Include="clouds.hpp" />
     <ClInclude Include="FastNoise.h" />
     <ClInclude Include="heightmap.hpp" />
+    <ClInclude Include="input.hpp" />
     <ClInclude Include="shader.hpp" />
     <ClInclude Include="timer.hpp" />
     <ClInclude Include="window.hpp" />
