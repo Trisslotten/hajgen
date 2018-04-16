@@ -2,7 +2,7 @@
 #include <GL\glew.h>
 #include <glm\gtc\constants.hpp>
 #include "window.hpp"
-#include "heightmap.hpp"
+#include "terrain.hpp"
 #include <algorithm>
 
 
@@ -10,15 +10,15 @@ int main()
 {
 	Window::open(1920 - 100, 1080 - 100);
 
-	Heightmap hm;
-	hm.generate();
+	Terrain terrain;
+	terrain.init();
 
 	while (!Window::shouldClose())
 	{
-		hm.update();
-		hm.draw();
+		terrain.update(glm::vec3());
 
-		Window::setTitle("iterations: " + std::to_string(hm.iterations));
+		terrain.draw();
+
 		Window::update();
 	}
 	Window::close();

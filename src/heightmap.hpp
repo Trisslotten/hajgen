@@ -6,48 +6,36 @@
 #include "FastNoise.h"
 #include "camera.hpp"
 
+
 class Heightmap
 {
 	GLuint heightmapTex;
-	GLuint patch_vao;
-	GLuint patch_vbo;
-
-	ShaderProgram shader;
 
 
 	glm::vec3 size;
 	float frequency;
 	float scale;
 	size_t resolution;
-
-
-	Camera camera;
+	int seed;
+	glm::vec2 pos;
+	uint64_t maxIterations;
+	uint64_t smoothInterval;
+	uint64_t iterations = 0;
 
 
 	float* noisemap;
 	float* smoothTemp;
 	uint16_t* heightmap;
 
-	uint64_t smoothInterval;
 
-	Timer dtimer;
-	Timer uploadTimer;
-	Timer gt;
-	Timer erodeTimer;
-
-	float* watermap;
-	float* sedimentmap;
-
-	void updateWater();
-
+	void generate();
+	void iterate();
 	void dropErodeOnce();
 	void smoothen();
+	void addDetail();
 
-	void upload();
 
 	float heightAt(int x, int y);
-	float heightAt(glm::vec3 pos);
-	float heightAt(glm::vec2 pos);
 
 	glm::vec3 normalAt(glm::vec2 pos);
 
@@ -62,6 +50,8 @@ class Heightmap
 		FastNoise mountains;
 		FastNoise fields;
 		FastNoise biome;
+
+		FastNoise detail;
 	} ns;
 	float fieldNoise(float x, float y);
 	float mountainNoise(float x, float y);
@@ -72,17 +62,23 @@ class Heightmap
 
 public:
 
-	Heightmap();
+	Heightmap(glm::vec2 _pos);
+	~Heightmap();
 
-	unsigned long iterations = 0;
+	void upload();
 
-	void generate(); 
+	float heightAt(glm::vec3 pos);
+	float heightAt(glm::vec2 pos);
+	
+	void bind(ShaderProgram& shader);
 
-	void update();
-	void draw();
-
+	auto getSize()
+	{
+		return size;
+	}
 };
 
+Heightmap* generateHeightmap(glm::vec2 pos);
 
 
 

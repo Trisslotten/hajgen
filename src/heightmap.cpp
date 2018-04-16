@@ -28,18 +28,32 @@ float random()
 }
 
 
-Heightmap::Heightmap()
+Heightmap::Heightmap(glm::vec2 _pos)
 {
-	size = glm::vec3(25, 30, 25);
+	pos = _pos;
 
-	scale = 0.3f;
+	seed = 602;
 
-	smoothInterval = 2000000UL;
+	size = glm::vec3(2048, 1000, 2048);
+	scale = 1.0f;
 
-	resolution = 1024;
+
+	resolution = 2048;
 	frequency = 500.5f / size.y;
 
-	camera.position = size * 0.5f;
+	
+	smoothInterval = 2000UL;
+	maxIterations = 2 * resolution * resolution;
+	maxIterations = 0;
+
+	generate();
+}
+
+Heightmap::~Heightmap()
+{
+	delete[] noisemap;
+	delete[] smoothTemp;
+	delete[] heightmap;
 }
 
 
@@ -49,9 +63,15 @@ void Heightmap::upload()
 	{
 		heightmap[i] = glm::clamp(noisemap[i], 0.f, 1.f) * float(std::numeric_limits<uint16_t>::max());
 	}
-	glBindTexture(GL_TEXTURE_2D, heightmapTex);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, resolution, resolution, GL_RED, GL_UNSIGNED_SHORT, &heightmap[0]);
 
+	glGenTextures(1, &heightmapTex);
+	glBindTexture(GL_TEXTURE_2D, heightmapTex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16, resolution, resolution, 0, GL_RED, GL_UNSIGNED_SHORT, &heightmap[0]);
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 float Heightmap::heightAt(int x, int y)
@@ -86,6 +106,15 @@ float Heightmap::heightAt(glm::vec3 pos)
 float Heightmap::heightAt(glm::vec2 pos)
 {
 	return heightAt(glm::vec3(pos.x, 0, pos.y));
+}
+
+void Heightmap::bind(ShaderProgram& shader)
+{
+	shader.uniform("heightmap", 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, heightmapTex);
+	shader.uniform("size", size);
+	shader.uniform("hmPos", pos);
 }
 
 glm::vec3 Heightmap::normalAt(glm::vec2 pos)
@@ -188,18 +217,27 @@ void Heightmap::configureNoises()
 	float mult = frequency * size.x / (resolution * scale);
 
 	ns.mountains.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
+	ns.mountains.SetSeed(seed);
 	ns.mountains.SetFractalOctaves(20);
 	ns.mountains.SetFrequency(0.001f *  mult);
 
 
 	ns.fields.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
+	ns.fields.SetSeed(seed);
 	ns.fields.SetFractalOctaves(20);
 	ns.fields.SetFrequency(0.001f * mult);
 
 
 	ns.biome.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
+	ns.biome.SetSeed(seed);
 	ns.biome.SetFractalOctaves(2);
 	ns.biome.SetFrequency(0.0005f * mult);
+
+
+	ns.detail.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
+	ns.detail.SetSeed(seed);
+	ns.detail.SetFractalOctaves(1);
+	ns.detail.SetFrequency(5.f * mult);
 }
 
 float Heightmap::getBiome(float x, float y)
@@ -260,92 +298,46 @@ void Heightmap::generate()
 	noisemap = new float[resolution*resolution];
 	smoothTemp = new float[resolution*resolution];
 	
-
-	watermap = new float[resolution*resolution];
-	sedimentmap = new float[resolution*resolution];
-	
 	configureNoises();
 	
-
+	
 	for (int iy = 0; iy < resolution; iy++)
 	{
 		for (int ix = 0; ix < resolution; ix++)
 		{
-			noisemap[ix + iy * resolution]= scale * getNoise(ix, iy);
+			float x = ix + resolution * pos.x;
+			float y = iy + resolution * pos.y;
+
+			noisemap[ix + iy * resolution]= scale * getNoise(x, y);
 		}
 	}
-
-	heightmap = new uint16_t[resolution*resolution];
-
-	for (int i = 0; i < resolution*resolution; i++)
+	while (iterations < maxIterations)
 	{
-		heightmap[i] = glm::max(noisemap[i]/ 100.f, 0.f) * float(std::numeric_limits<uint16_t>::max());
+		iterate();
 	}
-
-	glGenTextures(1, &heightmapTex);
-	glBindTexture(GL_TEXTURE_2D, heightmapTex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16, resolution, resolution, 0, GL_RED, GL_UNSIGNED_SHORT, &heightmap[0]);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-
-	float patch_vertices[] = {
-		0.0, 0.0,
-		1.0, 0.0,
-		0.0, 1.0,
-		1.0, 1.0
-	};
-
-	glGenVertexArrays(1, &patch_vao);
-	glBindVertexArray(patch_vao);
-	glGenBuffers(1, &patch_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, patch_vbo);
-	glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), patch_vertices, GL_STATIC_DRAW);
-
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (GLvoid*)0);
-
-	shader.add(GL_VERTEX_SHADER, "testvert.glsl");
-	shader.add(GL_TESS_CONTROL_SHADER, "testctrl.glsl");
-	shader.add(GL_TESS_EVALUATION_SHADER, "testeval.glsl");
-	shader.add(GL_FRAGMENT_SHADER, "testfrag.glsl");
-	shader.compile();
+	heightmap = new uint16_t[resolution*resolution];
 }
 
-void Heightmap::update()
+void Heightmap::iterate()
 {
-	double dt = dtimer.restart();
-
-	
-	const float erodeFPS = 24.f;
-	while(true)
+	dropErodeOnce();
+	iterations++;
+		
+	if (iterations % smoothInterval == 0)
 	{
-		if (erodeTimer.elapsed() > 1.f / erodeFPS)
-		{
-			erodeTimer.restart();
-			break;
-		}
-		dropErodeOnce();
-		iterations++;
-		
-		if (iterations % smoothInterval == 0)
-		{
-			smoothen();
-		}
-		
+		smoothen();
 	}
 
-	camera.update(dt);
 
-	//camera.position.y = heightAt(camera.position - glm::vec3(2)) + 1.8f;
-
-	if (uploadTimer.elapsed() > 1.0 / 15.0)
+	if (iterations % (smoothInterval) == 0)
 	{
-		uploadTimer.restart();
-		upload();
+		addDetail();
+	}
+
+
+	if (iterations % (20 * smoothInterval) == 0)
+	{
+		smoothInterval *= 2;
 	}
 }
 
@@ -439,40 +431,26 @@ void Heightmap::smoothen()
 				smoothed += kernel[i] * noisemap[index(x + offset, y, resolution)];
 			}
 			smoothTemp[x + y * resolution] = smoothed;
+			
 		}
 	}
 
 	std::swap(noisemap, smoothTemp);
 }
 
-
-void Heightmap::draw()
+void Heightmap::addDetail()
 {
-	glClearColor(47.f / 255, 141.f / 255, 255.f / 255, 1.f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	shader.use();
-	shader.uniform("heightmap", 0);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, heightmapTex);
-	
-
-	shader.uniform("proj_view", camera.getViewProj());
-
-	shader.uniform("size", size);
-
-	glBindVertexArray(patch_vao);
-	glPatchParameteri(GL_PATCH_VERTICES, 4);
-
-	int patches = 70;
-	float patchSize = size.x/patches;
-	shader.uniform("patchSize", patchSize);
-	for (int y = 0; y < patches; y++)
+	for (int y = 0; y < resolution; y++)
 	{
-		for (int x = 0; x < patches; x++)
+		for (int x = 0; x < resolution; x++)
 		{
-			shader.uniform("patchPos", patchSize * glm::vec2(x, y));
-			glDrawArrays(GL_PATCHES, 0, 4);
+			noisemap[x + y * resolution] += 0.0001f*ns.detail.GetNoise(x, y);
 		}
 	}
+}
+
+Heightmap * generateHeightmap(glm::vec2 pos)
+{
+	Heightmap* result = new Heightmap(pos);
+	return result;
 }

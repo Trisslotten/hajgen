@@ -130,6 +130,7 @@
     <ClCompile Include="input.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="shader.cpp" />
+    <ClCompile Include="terrain.cpp" />
     <ClCompile Include="timer.cpp" />
     <ClCompile Include="window.cpp" />
   </ItemGroup>
@@ -140,6 +141,7 @@
     <ClInclude Include="heightmap.hpp" />
     <ClInclude Include="input.hpp" />
     <ClInclude Include="shader.hpp" />
+    <ClInclude Include="terrain.hpp" />
     <ClInclude Include="timer.hpp" />
     <ClInclude Include="window.hpp" />
   </ItemGroup>

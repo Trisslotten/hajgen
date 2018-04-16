@@ -54,6 +54,9 @@
     <ClCompile Include="input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="terrain.cpp">
+      <Filter>Source Files\terrain</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="timer.hpp">
@@ -79,6 +82,9 @@
     </ClInclude>
     <ClInclude Include="input.hpp">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="terrain.hpp">
+      <Filter>Source Files\terrain</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
