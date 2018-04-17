@@ -38,7 +38,7 @@ Heightmap::Heightmap(glm::vec2 _pos)
 	scale = 1.0f;
 
 
-	resolution = 2048;
+	resolution = 128;
 	frequency = 500.5f / size.y;
 
 	
@@ -305,8 +305,9 @@ void Heightmap::generate()
 	{
 		for (int ix = 0; ix < resolution; ix++)
 		{
-			float x = ix + resolution * pos.x;
-			float y = iy + resolution * pos.y;
+			// share edges between heightmaps;
+			float x = ix - 3 + (resolution - 3) * pos.x;
+			float y = iy - 3 + (resolution - 3) * pos.y;
 
 			noisemap[ix + iy * resolution]= scale * getNoise(x, y);
 		}

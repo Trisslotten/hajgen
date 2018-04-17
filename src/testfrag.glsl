@@ -110,7 +110,7 @@ vec3 chooseMat(vec3 pos, vec3 normal) {
 }
 
 void main() {
-	vec3 normal = tenormal;// sampleNormal(tetex);
+	vec3 normal = sampleNormal(tetex);
 	
 
 	float ao = 1;//(1.0 - ambientOcclusion(tetex, normal));

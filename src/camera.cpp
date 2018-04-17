@@ -15,9 +15,9 @@ void Camera::update(float dt)
 	float hpi = glm::half_pi<float>() - 0.001;
 	pitch = glm::clamp(pitch, -hpi, hpi);
 
-	float speed = 15.f;
+	float speed = 50.f;
 	if (Input::isKeyDown(GLFW_KEY_LEFT_SHIFT))
-		speed = 50.f;
+		speed *= 10;
 
 
 

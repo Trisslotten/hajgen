@@ -21,7 +21,7 @@ uniform vec2 hmPos;
 
 vec3 sampleNormal(vec2 uv) {
 	vec2 heightmapSize = vec2(textureSize(heightmap, 0));
-	float t = 0.5/heightmapSize.x;
+	float t = 1.0/heightmapSize.x;
 
 	vec4 h;
 	h[0] = texture(heightmap, uv + t * vec2(0,-1)).r;
@@ -42,6 +42,9 @@ void main() {
 	vec2 pos = patchPos + patchSize * gl_TessCoord.xy;
 	
 	vec2 uv = pos / size.xz;
+	float t = 1.5/textureSize(heightmap, 0).x;
+	uv = (1.0 - 2.0*t)*uv + t;
+
 	tetex = uv;
 
 	teposition = pos.xyy;

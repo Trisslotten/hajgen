@@ -2,10 +2,7 @@
 
 Terrain::~Terrain()
 {
-	for (auto& future : generating)
-	{
-		future.
-	}
+
 }
 
 void Terrain::init()
