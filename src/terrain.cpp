@@ -83,7 +83,7 @@ void Terrain::draw()
 	for (auto hm : heightmaps)
 	{
 		hm->bind(shader);
-		int patches = 15;
+		int patches = 256/64;
 		float patchSize = hm->getSize().x / patches;
 		shader.uniform("patchSize", patchSize);
 		for (int y = 0; y < patches; y++)

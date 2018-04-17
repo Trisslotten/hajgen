@@ -44,7 +44,7 @@ Heightmap::Heightmap(glm::vec2 _pos)
 	
 	smoothInterval = 2000UL;
 	maxIterations = 2 * resolution * resolution;
-	maxIterations = 0;
+	//maxIterations = 0;
 
 	generate();
 }

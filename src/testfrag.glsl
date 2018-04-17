@@ -18,7 +18,7 @@ vec3 sampleNormal(vec2 uv) {
 	float t = 1.0/heightmapSize.x;
 
 	vec4 h;
-	h[0] = texture(heightmap, uv + t * vec2(0,-2)).r;
+	h[0] = texture(heightmap, uv + t * vec2(0,-1)).r;
 	h[1] = texture(heightmap, uv + t * vec2(-1,0)).r;
 	h[2] = texture(heightmap, uv + t * vec2(1, 0)).r;
 	h[3] = texture(heightmap, uv + t * vec2(0, 1)).r;
