@@ -8,6 +8,7 @@
 #include <glm\glm.hpp>
 #include <glm\gtx\quaternion.hpp>
 #include "window.hpp"
+#include "misc.hpp"
 
 size_t index(int x, int y, int size)
 {
@@ -21,32 +22,35 @@ size_t index(int x, int y, int size)
 		y = size-1;
 	return x + y * size;
 }
-// [0,1]
-float random()
-{
-	return float(rand()) / float(RAND_MAX);
-}
+
 
 
 Heightmap::Heightmap(glm::vec2 _pos)
 {
 	pos = _pos;
 
-	seed = 602;
+	seed = 6050;
 
-	size = glm::vec3(2048, 1000, 2048);
+	size = HEIGHTMAP_SIZE;
 	scale = 1.0f;
 
 
-	resolution = 128;
+	resolution = HEIGHTMAP_RESOLUTION;
 	frequency = 500.5f / size.y;
 
-	
-	smoothInterval = 2000UL;
-	maxIterations = 2 * resolution * resolution;
-	//maxIterations = 0;
+
+	noisemap = new float[resolution*resolution];
+	smoothTemp = new float[resolution*resolution];
+	heightmap = new uint16_t[resolution*resolution];
+
 
 	generate();
+	/*
+	while (iterations < maxIterations)
+	{
+	iterate();
+	}
+	*/
 }
 
 Heightmap::~Heightmap()
@@ -74,133 +78,16 @@ void Heightmap::upload()
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-float Heightmap::heightAt(int x, int y)
-{
-	return size.y * glm::max(noisemap[index(x, y, resolution)], 0.f);
-}
-
-float Heightmap::heightAt(glm::vec3 pos)
-{
-	pos /= size;
-
-	int x = resolution * pos.x;
-	int y = resolution * pos.z;
-
-	float tx = glm::fract(resolution * pos.x);
-	float ty = glm::fract(resolution * pos.z);
-
-	float h00 = heightAt(x, y);
-	float h10 = heightAt(x+1, y);
-	float h01 = heightAt(x, y+1);
-	float h11 = heightAt(x+1, y+1);
-
-	float height = 0;
-	height += h00 * (1.f - tx)* (1.f - ty);
-	height += h10 * tx * (1.f - ty);
-	height += h01 * (1.f - tx) * ty;
-	height += h11 * tx * ty;
-
-	return height;
-}
-
-float Heightmap::heightAt(glm::vec2 pos)
-{
-	return heightAt(glm::vec3(pos.x, 0, pos.y));
-}
-
 void Heightmap::bind(ShaderProgram& shader)
 {
 	shader.uniform("heightmap", 0);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, heightmapTex);
 	shader.uniform("size", size);
-	shader.uniform("hmPos", pos);
+	shader.uniform("hmPos", glm::vec2(pos));
 }
 
-glm::vec3 Heightmap::normalAt(glm::vec2 pos)
-{
-	float t = 1.f / resolution;
 
-	glm::vec4 h;
-	h[0] = heightAt(pos + glm::vec2(0, -1) / size.x) / size.y;
-	h[1] = heightAt(pos + glm::vec2(-1, 0) / size.x) / size.y;
-	h[2] = heightAt(pos + glm::vec2(1, 0) / size.x) / size.y;
-	h[3] = heightAt(pos + glm::vec2(0, 1) / size.x) / size.y;
-
-	float ratioX = t * size.x / (size.y);
-	float ratioZ = t * size.z / (size.y);
-	glm::vec3 n;
-	n.x = ratioX * (h[1] - h[2]);
-	n.z = ratioZ * (h[0] - h[3]);
-	n.y = 2 * ratioX*ratioZ;
-	return normalize(n);
-}
-
-void Heightmap::addHeightAt(int x, int y, float height)
-{
-	if(x >= 0 && x < resolution && y >= 0 && y < resolution)
-		noisemap[index(x, y, resolution)] += height;
-}
-
-void Heightmap::addHeightAt(glm::vec2 pos, float height)
-{
-	int x = glm::floor(resolution * pos.x / size.x);
-	int y = glm::floor(resolution * pos.y / size.z);
-
-	height /= size.y;
-
-	float tx = glm::fract(resolution * pos.x / size.x);
-	float ty = glm::fract(resolution * pos.y / size.z);
-
-	
-	addHeightAt(x, y, height * (1.f - tx)*(1.f - ty));
-	addHeightAt(x, y+1, height * (1.f - tx) * ty);
-	addHeightAt(x+1, y, height * tx * (1.f - ty));
-	addHeightAt(x+1, y+1, height * tx * ty);
-	
-}
-
-void Heightmap::addHeightAt(glm::vec2 pos, float radius, float volume)
-{
-	float pixelArea = size.x*1.f / resolution;
-	pixelArea *= pixelArea;
-
-	float totalVolume = 0.f;
-
-
-	int ir = resolution * radius / size.x;
-
-	if (ir <= 0)
-		ir = 1;
-
-
-	float step = 1.0f;
-
-	float mult = 3.333333f * step*step * volume / (radius * radius * glm::pi<float>());
-
-	int px = glm::floor(resolution * pos.x / size.x);
-	int py = glm::floor(resolution * pos.y / size.z);
-
-	glm::vec2 offset;
-	for (int iy = -ir-1; iy <= ir+1; iy += 1)
-	{
-		offset.y = iy * radius / ir;
-		int width = glm::sqrt(ir*ir - iy * iy);
-		for (int ix = -width-1; ix <= width+1; ix += 1)
-		{
-			offset.x = ix * radius / ir;
-			float h = mult * glm::smoothstep(radius, 0.f, length(offset));
-
-			h = mult * (1.f - glm::clamp(length(offset)/radius, 0.f, 1.f));
-
-			addHeightAt(px + ix, py + iy, h / size.y);
-
-			totalVolume += h * pixelArea;
-		}
-	}
-
-	//std::cout << "totalVolume = " << totalVolume << "\n";
-}
 
 glm::vec2 Heightmap::gradientAt(glm::vec2 pos)
 {
@@ -292,11 +179,7 @@ float Heightmap::getNoise(float x, float y)
 
 void Heightmap::generate()
 {
-	srand(time(NULL));
-
-
-	noisemap = new float[resolution*resolution];
-	smoothTemp = new float[resolution*resolution];
+	srand(seed);
 	
 	configureNoises();
 	
@@ -306,96 +189,10 @@ void Heightmap::generate()
 		for (int ix = 0; ix < resolution; ix++)
 		{
 			// share edges between heightmaps;
-			float x = ix - 3 + (resolution - 3) * pos.x;
-			float y = iy - 3 + (resolution - 3) * pos.y;
-
-			noisemap[ix + iy * resolution]= scale * getNoise(x, y);
+			float x = ix - 3 + (int(resolution) - 3) * pos.x;
+			float y = iy - 3 + (int(resolution) - 3) * pos.y;
+			noisemap[ix + iy * resolution] = scale * getNoise(x, y);
 		}
-	}
-	while (iterations < maxIterations)
-	{
-		iterate();
-	}
-	heightmap = new uint16_t[resolution*resolution];
-}
-
-void Heightmap::iterate()
-{
-	dropErodeOnce();
-	iterations++;
-		
-	if (iterations % smoothInterval == 0)
-	{
-		smoothen();
-	}
-
-
-	if (iterations % (smoothInterval) == 0)
-	{
-		addDetail();
-	}
-
-
-	if (iterations % (20 * smoothInterval) == 0)
-	{
-		smoothInterval *= 2;
-	}
-}
-
-
-
-void Heightmap::dropErodeOnce()
-{
-	glm::vec2 vel;
-	glm::vec2 pos;
-
-	bool done = false;
-	while (!done)
-	{
-		float rn1 = random();
-		float rn2 = random();
-
-		float biome = getBiome(rn1 * resolution, rn2 * resolution);
-		//if (biome < 1.0)//random())
-			done = true;
-		pos.x = size.x * rn1;
-		pos.y = size.z * rn2;
-	}
-
-	float stepSize = 1.f;
-	float erosionRatio = 0.9f;
-	float depositRatio = 0.5f;
-
-
-	float sediment = 0.f;
-
-
-	for (int j = 0; j < 100; j++)
-	{
-		if (pos.x <= 0 || pos.x >= size.x || pos.y <= 0 || pos.y >= size.z)
-		{
-			break;
-		}
-
-		glm::vec2 dir = gradientAt(pos);
-		vel += 0.5f * dir;
-		glm::vec2 step = stepSize * size.x * normalize(vel) / float(resolution);
-		vel *= 0.5f;
-
-		float currHeight = heightAt(pos);
-		float nextHeight = heightAt(pos + step);
-
-		float eroded = erosionRatio *glm::max(currHeight - nextHeight, 0.f) * glm::smoothstep(0.f,5.f, float(j));
-		eroded -= depositRatio * sediment;
-		addHeightAt(pos, -eroded);
-		sediment += eroded;
-
-		pos += step;
-	}
-
-	if (sediment > 0)
-	{
-		//addHeightAt(pos, sediment);
 	}
 }
 
@@ -450,8 +247,127 @@ void Heightmap::addDetail()
 	}
 }
 
-Heightmap * generateHeightmap(glm::vec2 pos)
+
+
+
+float Heightmap::heightAt(int x, int y)
 {
-	Heightmap* result = new Heightmap(pos);
+
+	float result = size.y * glm::max(noisemap[index(x, y, resolution)], 0.f);
+	if (x < 0 || x >= resolution || y < 0|| y >= resolution)
+		result += 0.2;
 	return result;
+}
+
+float Heightmap::heightAt(glm::vec3 _pos)
+{
+	_pos /= size;
+	_pos -= glm::vec3(pos.x, 0, pos.y);
+
+
+	float texel = 1.0f / float(resolution);
+	_pos -= 0.5f*texel;
+
+	glm::vec3 border = glm::vec3(1.5f*texel);
+	_pos = (1.0f - 2.0f*border)*_pos + border;
+
+	int x = resolution * _pos.x;
+	int y = resolution * _pos.z;
+
+	float tx = glm::fract(resolution * _pos.x);
+	float ty = glm::fract(resolution * _pos.z);
+
+	float h00 = heightAt(x, y);
+	float h10 = heightAt(x + 1, y);
+	float h01 = heightAt(x, y + 1);
+	float h11 = heightAt(x + 1, y + 1);
+
+	float height = 0;
+	height += h00 * (1.f - tx) * (1.f - ty);
+	height += h10 * tx * (1.f - ty);
+	height += h01 * (1.f - tx) * ty;
+	height += h11 * tx * ty;
+
+	return height;
+}
+
+float Heightmap::heightAt(glm::vec2 pos)
+{
+	return heightAt(glm::vec3(pos.x, 0, pos.y));
+}
+
+glm::vec3 Heightmap::normalAt(glm::vec2 pos)
+{
+	float t = 1.f / resolution;
+
+	glm::vec4 h;
+	h[0] = heightAt(pos + glm::vec2(0, -1) / size.x) / size.y;
+	h[1] = heightAt(pos + glm::vec2(-1, 0) / size.x) / size.y;
+	h[2] = heightAt(pos + glm::vec2(1, 0) / size.x) / size.y;
+	h[3] = heightAt(pos + glm::vec2(0, 1) / size.x) / size.y;
+
+	float ratioX = t * size.x / (size.y);
+	float ratioZ = t * size.z / (size.y);
+	glm::vec3 n;
+	n.x = ratioX * (h[1] - h[2]);
+	n.z = ratioZ * (h[0] - h[3]);
+	n.y = 2 * ratioX*ratioZ;
+	return normalize(n);
+}
+
+void Heightmap::setHeightAt(int x, int y, float height)
+{
+	if (x >= 0 && x < resolution && y >= 0 && y < resolution)
+		noisemap[index(x, y, resolution)] = height;
+}
+
+void Heightmap::addHeightAt(int x, int y, float height)
+{
+	if (x >= 0 && x < resolution && y >= 0 && y < resolution)
+		noisemap[index(x, y, resolution)] += height;
+}
+
+void Heightmap::setHeightAt(glm::vec2 _pos, float height)
+{
+	_pos /= size.x;
+	_pos -= glm::vec2(pos.x, pos.y);
+
+	float texel = 1.0f / float(resolution);
+	_pos -= 0.5f*texel;
+
+	glm::vec2 border = glm::vec2(1.5f*texel);
+	_pos = (1.0f - 2.0f*border)*_pos + border;
+
+	int x = resolution * _pos.x;
+	int y = resolution * _pos.y;
+
+	height /= size.y;
+
+	setHeightAt(x, y, height);
+}
+
+void Heightmap::addHeightAt(glm::vec2 _pos, float height)
+{
+	_pos /= size.x;
+	_pos -= glm::vec2(pos.x, pos.y);
+
+	float texel = 1.0f / float(resolution);
+	_pos -= 0.5f*texel;
+
+	glm::vec2 border = glm::vec2(1.5f*texel);
+	_pos = (1.0f - 2.0f*border)*_pos + border;
+
+	int x = resolution * _pos.x;
+	int y = resolution * _pos.y;
+
+	float tx = glm::fract(resolution * _pos.x);
+	float ty = glm::fract(resolution * _pos.y);
+
+	height /= size.y;
+
+	addHeightAt(x, y, height * (1.f - tx)*(1.f - ty));
+	addHeightAt(x, y + 1, height * (1.f - tx) * ty);
+	addHeightAt(x + 1, y, height * tx * (1.f - ty));
+	addHeightAt(x + 1, y + 1, height * tx * ty);
+
 }

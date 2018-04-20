@@ -125,10 +125,12 @@
   <ItemGroup>
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="clouds.cpp" />
+    <ClCompile Include="eroder.cpp" />
     <ClCompile Include="FastNoise.cpp" />
     <ClCompile Include="heightmap.cpp" />
     <ClCompile Include="input.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="misc.cpp" />
     <ClCompile Include="shader.cpp" />
     <ClCompile Include="terrain.cpp" />
     <ClCompile Include="timer.cpp" />
@@ -137,9 +139,11 @@
   <ItemGroup>
     <ClInclude Include="camera.hpp" />
     <ClInclude Include="clouds.hpp" />
+    <ClInclude Include="eroder.hpp" />
     <ClInclude Include="FastNoise.h" />
     <ClInclude Include="heightmap.hpp" />
     <ClInclude Include="input.hpp" />
+    <ClInclude Include="misc.hpp" />
     <ClInclude Include="shader.hpp" />
     <ClInclude Include="terrain.hpp" />
     <ClInclude Include="timer.hpp" />

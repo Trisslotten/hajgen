@@ -6,6 +6,9 @@
 #include "FastNoise.h"
 #include "camera.hpp"
 
+const glm::vec3 HEIGHTMAP_SIZE(2048.f, 1000.f, 2048.f);
+const size_t HEIGHTMAP_RESOLUTION = 128;
+const int HEIGHTMAP_MAX_ITERATIONS = 2 * HEIGHTMAP_RESOLUTION * HEIGHTMAP_RESOLUTION;
 
 class Heightmap
 {
@@ -17,11 +20,7 @@ class Heightmap
 	float scale;
 	size_t resolution;
 	int seed;
-	glm::vec2 pos;
-	uint64_t maxIterations;
-	uint64_t smoothInterval;
-	uint64_t iterations = 0;
-
+	glm::ivec2 pos;
 
 	float* noisemap;
 	float* smoothTemp;
@@ -29,8 +28,6 @@ class Heightmap
 
 
 	void generate();
-	void iterate();
-	void dropErodeOnce();
 	void smoothen();
 	void addDetail();
 
@@ -39,11 +36,9 @@ class Heightmap
 
 	glm::vec3 normalAt(glm::vec2 pos);
 
+	void setHeightAt(int x, int y, float height);
 	void addHeightAt(int x, int y, float height);
-	void addHeightAt(glm::vec2 pos, float height);
-	void addHeightAt(glm::vec2 pos, float radius, float volume);
 
-	glm::vec2 gradientAt(glm::vec2 pos);
 
 	struct
 	{
@@ -63,22 +58,28 @@ class Heightmap
 public:
 
 	Heightmap(glm::vec2 _pos);
+	
 	~Heightmap();
 
-	void upload();
 
 	float heightAt(glm::vec3 pos);
 	float heightAt(glm::vec2 pos);
-	
+	glm::vec2 gradientAt(glm::vec2 pos);
+
+	void setHeightAt(glm::vec2 pos, float height);
+	void addHeightAt(glm::vec2 pos, float height);
+
+
+	void upload();
 	void bind(ShaderProgram& shader);
+
 
 	auto getSize()
 	{
 		return size;
 	}
+	auto getPos()
+	{
+		return pos;
+	}
 };
-
-Heightmap* generateHeightmap(glm::vec2 pos);
-
-
-

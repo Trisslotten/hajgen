@@ -116,14 +116,15 @@ void main() {
 	float ao = 1;//(1.0 - ambientOcclusion(tetex, normal));
 
 
-	float diffuse = 0.9*max(dot(normal, normalize(vec3(-1,1,0))), 0) * ao;
-	float ambient = 0.1 * ao;
+	float diffuse = 0.8*max(dot(normal, normalize(vec3(-1,1,1))), 0) * ao;
+	float ambient = 0.2 * ao;
 
 	vec3 material = chooseMat(teposition, normal);
 	
 	vec3 color;
 	color += material * diffuse;
 	color += material * ambient;
+
 
 	out_color = vec4(color, 1.0);
 }
