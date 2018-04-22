@@ -3,6 +3,17 @@
 #include "eroder.hpp"
 #include <iostream>
 
+void Terrain::generateChunk(glm::ivec2 pos)
+{
+	auto item = maps.find(pos);
+
+	if (item == maps.end())
+	{
+		maps[pos] = nullptr;
+		toGenerate.push(pos);
+	}
+}
+
 Terrain::~Terrain()
 {
 
@@ -10,16 +21,6 @@ Terrain::~Terrain()
 
 void Terrain::init()
 {
-	
-	for (int y = 0; y <= 3; y++)
-	{
-		for (int x = 0; x <= 3; x++)
-		{
-			toGenerate.push(glm::ivec2(x, y));
-		}
-	}
-
-
 	float patch_vertices[] = {
 		0.0, 0.0,
 		1.0, 0.0,
@@ -44,14 +45,27 @@ void Terrain::init()
 
 void Terrain::update(glm::vec3 pos)
 {
+	
+	int chunkX = glm::floor(camera.position.x / HEIGHTMAP_SIZE.x);
+	int chunkY = glm::floor(camera.position.z / HEIGHTMAP_SIZE.z);
+	float radius = 3;
+	for (int i = -radius; i <= radius; i++)
+	{
+		int width = sqrt(radius*radius - i * i);
+		for (int j = -width; j <= width; j++)
+		{
+			generateChunk(glm::ivec2(chunkX + i, chunkY + j));
+		}
+	}
 
-	int slots = 2 - generating.size();
+
+	int slots = 1 - generating.size();
 	for (int i = 0; i < slots && !toGenerate.empty(); i++)
 	{
 		auto pos = toGenerate.front();
 		toGenerate.pop();
 
-		toErode.push(pos);
+		toErode.push_back(pos);
 
 		for (int y = -1; y <= 1; y++)
 		{
@@ -61,8 +75,13 @@ void Terrain::update(glm::vec3 pos)
 				auto item = maps.find(p);
 				if (item == maps.end())
 				{ // not found
-					maps[p] = nullptr;
-
+					generating.push_back(std::async(std::launch::async, [p]()
+					{
+						return new Heightmap(p);
+					}));
+				}
+				else if (!item->second)
+				{
 					generating.push_back(std::async(std::launch::async, [p]()
 					{
 						return new Heightmap(p);
@@ -75,7 +94,6 @@ void Terrain::update(glm::vec3 pos)
 
 	for (int i = 0; i < generating.size(); i++)
 	{
-
 		auto status = generating[i].wait_for(std::chrono::nanoseconds(1));
 
 		if (status == std::future_status::ready)
@@ -90,16 +108,16 @@ void Terrain::update(glm::vec3 pos)
 	}
 
 
-	if (eroding.empty() && !toErode.empty())
+	for(int i = 0; i < toErode.size() && eroding.size() < 3; i++)
 	{
-		auto pos = toErode.front();
+		auto pos = toErode[i];
 
-		bool foundAll = true;
+		bool canStart = true;
 
 		Heightmap** param = new Heightmap*[3*3];
-		for (int y = 0; y < 3 && foundAll; y++)
+		for (int y = 0; y < 3 && canStart; y++)
 		{
-			for (int x = 0; x < 3 && foundAll; x++)
+			for (int x = 0; x < 3 && canStart; x++)
 			{
 				auto p = pos + glm::ivec2(x-1, y-1);
 				auto item = maps.find(p);
@@ -111,26 +129,39 @@ void Terrain::update(glm::vec3 pos)
 					}
 					else
 					{
-						foundAll = false;
+						canStart = false;
 					}
 				}
 				else
 				{
-					foundAll = false;
+					canStart = false;
 				}
 			}
 		}
+		if (!canStart)
+			continue;
 
-		if (foundAll)
+		for (auto& p : erodingPositions)
 		{
-			toErode.pop();
+			glm::ivec2 dist = abs(pos - p);
+			if (dist.x < 3 && dist.y < 3)
+			{
+				canStart = false;
+				break;
+			}
+		}
+
+		if (canStart)
+		{
+			toErode.erase(toErode.begin() + i);
 			eroding.push_back(std::async(std::launch::async, erodeCenterHeightmap, param));
+			erodingPositions.push_back(pos);
 		}
 	}
 
-	if (!eroding.empty())
+	for(int i = 0; i < eroding.size(); i++)
 	{
-		auto& item = eroding[0];
+		auto& item = eroding[i];
 
 		auto status = item.wait_for(std::chrono::nanoseconds(1));
 
@@ -153,7 +184,9 @@ void Terrain::update(glm::vec3 pos)
 					}
 				}
 			}
-			eroding.erase(eroding.begin());
+			eroding.erase(eroding.begin() + i);
+			erodingPositions.erase(erodingPositions.begin() + i);
+			break;
 		}
 	}
 
@@ -164,8 +197,6 @@ void Terrain::update(glm::vec3 pos)
 	double dt = dtimer.restart();
 	camera.update(dt);
 
-	int chunkX = glm::floor(camera.position.x / HEIGHTMAP_SIZE.x);
-	int chunkY = glm::floor(camera.position.z / HEIGHTMAP_SIZE.z);
 	auto iter = maps.find(glm::ivec2(chunkX, chunkY));
 
 	//std::cout << "camera (" << camera.position.x << ", " << camera.position.z << ")\n";

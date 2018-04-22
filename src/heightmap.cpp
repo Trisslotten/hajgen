@@ -176,7 +176,6 @@ float Heightmap::getNoise(float x, float y)
 }
 
 
-
 void Heightmap::generate()
 {
 	srand(seed);
@@ -318,13 +317,13 @@ glm::vec3 Heightmap::normalAt(glm::vec2 pos)
 void Heightmap::setHeightAt(int x, int y, float height)
 {
 	if (x >= 0 && x < resolution && y >= 0 && y < resolution)
-		noisemap[index(x, y, resolution)] = height;
+		noisemap[index(x, y, resolution)] = height / size.y;
 }
 
 void Heightmap::addHeightAt(int x, int y, float height)
 {
 	if (x >= 0 && x < resolution && y >= 0 && y < resolution)
-		noisemap[index(x, y, resolution)] += height;
+		noisemap[index(x, y, resolution)] += height / size.y;
 }
 
 void Heightmap::setHeightAt(glm::vec2 _pos, float height)
@@ -340,8 +339,6 @@ void Heightmap::setHeightAt(glm::vec2 _pos, float height)
 
 	int x = resolution * _pos.x;
 	int y = resolution * _pos.y;
-
-	height /= size.y;
 
 	setHeightAt(x, y, height);
 }
@@ -362,8 +359,6 @@ void Heightmap::addHeightAt(glm::vec2 _pos, float height)
 
 	float tx = glm::fract(resolution * _pos.x);
 	float ty = glm::fract(resolution * _pos.y);
-
-	height /= size.y;
 
 	addHeightAt(x, y, height * (1.f - tx)*(1.f - ty));
 	addHeightAt(x, y + 1, height * (1.f - tx) * ty);

@@ -5,76 +5,48 @@
 
 void smoothBordersLR(Heightmap* left, Heightmap* right)
 {
-	float step = HEIGHTMAP_SIZE.x / float(HEIGHTMAP_RESOLUTION);
-	
-	float temp[HEIGHTMAP_RESOLUTION * 7];
+	//float temp[HEIGHTMAP_RESOLUTION * 7];
 
-	for (float ix = -1.5f; ix <= 1.5f; ix+=0.5f)
+	for (int i = 0; i < 5; i++)
 	{
-		for (float iy = 0; iy < HEIGHTMAP_RESOLUTION; iy++)
+		for (float j = 0; j < HEIGHTMAP_RESOLUTION; j++)
 		{
-			
-			float x = step * ix + HEIGHTMAP_SIZE.x * float(right->getPos().x);
-			float y = HEIGHTMAP_SIZE.z * iy / float(HEIGHTMAP_RESOLUTION) + HEIGHTMAP_SIZE.z * float(right->getPos().y);
+			int leftx = HEIGHTMAP_RESOLUTION - 4 + i;
+			int lefty = j;
 
-			glm::vec2 pos = glm::vec2(x, y);
+			int rightx = i-1;
+			int righty = j;
 
-			float lh = left->heightAt(pos);
-			float rh = right->heightAt(pos);
+			float leftHeight = left->heightAt(leftx, lefty);
+			float rightHeight = right->heightAt(rightx, righty);
 
-			float weight = glm::smoothstep(-1.5f, 1.5f, ix);
-			float height = rh * weight + lh * (1.f - weight);
+			float weight = glm::smoothstep(0.f, 4.f, float(i));
 
-
-			left->setHeightAt(pos, height);
-			right->setHeightAt(pos, height);
-			temp[int(ix) + 3 + int(iy) * 3] = height;
+			left->setHeightAt(leftx, lefty, leftHeight * (1.f - weight) + rightHeight * weight);
+			right->setHeightAt(rightx, righty, leftHeight * (1.f - weight) + rightHeight * weight);
 		}
 	}
-	/*
-	for (float ix = -3.0f; ix <= 3.0f; ix += 1.0f)
-	{
-		for (float iy = 0; iy < HEIGHTMAP_RESOLUTION; iy++)
-		{
-
-			float x = step * ix + HEIGHTMAP_SIZE.x * float(right->getPos().x);
-			float y = HEIGHTMAP_SIZE.z * iy / float(HEIGHTMAP_RESOLUTION) + HEIGHTMAP_SIZE.z * float(right->getPos().y);
-
-			glm::vec2 pos = glm::vec2(x, y);
-
-			float height = temp[int(ix) + 3 + int(iy) * 3];
-
-			left->setHeightAt(pos, height);
-			right->setHeightAt(pos, height);
-		}
-	}
-	*/
 }
 
 void smoothBordersUD(Heightmap* up, Heightmap* down)
 {
-	float step = HEIGHTMAP_SIZE.x / float(HEIGHTMAP_RESOLUTION);
-
-	float temp[HEIGHTMAP_RESOLUTION * 7];
-
-	for (float iy = -1.5f; iy <= 1.5f; iy += 0.5f)
+	for (int i = 0; i < 5; i++)
 	{
-		for (float ix = 0; ix < HEIGHTMAP_RESOLUTION; ix++)
+		for (float j = 0; j < HEIGHTMAP_RESOLUTION; j++)
 		{
+			int upx = j;
+			int upy = HEIGHTMAP_RESOLUTION - 4 + i;
 
-			float y = step * iy + HEIGHTMAP_SIZE.x * float(down->getPos().y);
-			float x = HEIGHTMAP_SIZE.x * ix / float(HEIGHTMAP_RESOLUTION) + HEIGHTMAP_SIZE.x * float(down->getPos().x);
+			int downx = j;
+			int downy = i-1;
 
-			glm::vec2 pos = glm::vec2(x, y);
+			float upHeight = up->heightAt(upx, upy);
+			float downHeight = down->heightAt(downx, downy);
 
-			float uh = up->heightAt(pos);
-			float dh = down->heightAt(pos);
+			float weight = glm::smoothstep(0.f, 4.f, float(i));
 
-			float weight = glm::smoothstep(-1.5f, 1.5f, ix);
-			float height = uh * weight + dh * (1.f - weight);
-
-			up->setHeightAt(pos, height);
-			down->setHeightAt(pos, height);
+			up->setHeightAt(upx, upy, upHeight * (1.f - weight) + downHeight * weight);
+			down->setHeightAt(downx, downy, upHeight * (1.f - weight) + downHeight * weight);
 		}
 	}
 }
@@ -86,7 +58,6 @@ glm::ivec2 erodeCenterHeightmap(Heightmap * maps[3 * 3])
 
 	for (int i = 0; i < HEIGHTMAP_MAX_ITERATIONS; i++)
 	{
-
 		glm::vec2 vel;
 		glm::vec2 pos;
 		float rn1 = random()*1.2f - 0.1f;
@@ -142,9 +113,17 @@ glm::ivec2 erodeCenterHeightmap(Heightmap * maps[3 * 3])
 			pos += step;
 		}
 
-		if (sediment > 0)
+
+		if (i % (HEIGHTMAP_MAX_ITERATIONS / 100) == 0)
 		{
-			//addHeightAt(pos, sediment);
+			for (int i = 0; i < 3; i++)
+			{
+				smoothBordersLR(maps[0 + i * 3], maps[1 + i * 3]);
+				smoothBordersLR(maps[1 + i * 3], maps[2 + i * 3]);
+
+				smoothBordersUD(maps[i + 0 * 3], maps[i + 1 * 3]);
+				smoothBordersUD(maps[i + 1 * 3], maps[i + 2 * 3]);
+			}
 		}
 	}
 
@@ -156,15 +135,8 @@ glm::ivec2 erodeCenterHeightmap(Heightmap * maps[3 * 3])
 		smoothBordersUD(maps[i + 0 * 3], maps[i + 1 * 3]);
 		smoothBordersUD(maps[i + 1 * 3], maps[i + 2 * 3]);
 	}
-	
 
-	float x = size.x*0.5f + center.x * size.x;
-	float y = size.z*0.5f + center.y * size.z;
-
-	for (int i = 0; i < 100; i++)
-	{
-
-	}
+	maps[1 + 1 * 3]->eroded = true;
 
 
 	delete[] maps;

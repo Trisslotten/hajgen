@@ -30,14 +30,17 @@ class Terrain
 
 	std::vector<std::future<Heightmap*>> generating;
 	std::vector<std::future<glm::ivec2>> eroding;
+	std::vector<glm::ivec2> erodingPositions;
 
-	std::queue<glm::ivec2> toErode;
+	std::vector<glm::ivec2> toErode;
 	std::queue<glm::ivec2> toGenerate;
 
 	ShaderProgram shader;
 
 	Timer dtimer;
 	Camera camera;
+
+	void generateChunk(glm::ivec2 pos);
 public:
 
 	~Terrain();

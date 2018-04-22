@@ -15,12 +15,17 @@ void Camera::update(float dt)
 	float hpi = glm::half_pi<float>() - 0.001;
 	pitch = glm::clamp(pitch, -hpi, hpi);
 
-	float speed = 50.f;
+	float speed = 350.f;
 	if (Input::isKeyDown(GLFW_KEY_LEFT_SHIFT))
 		speed *= 10;
 
 	// for isometric
 	//yaw = glm::pi<float>()/4;
+	//pitch = 0;
+
+
+	// for top-down
+	//yaw = 0;
 	//pitch = 0;
 
 
@@ -56,6 +61,12 @@ glm::mat4 Camera::getViewProj()
 	// for isometric
 	//proj = glm::ortho(-500.f*aspect, 500.f*aspect, -500.f, 500.f, 0.f, 2000.f);
 	//view = glm::lookAt(position - 2000.f*normalize(glm::vec3(1, -1, 1)), position, glm::vec3(0, 1, 0));
+
+
+	// for top-down
+	//float hsize = 10000;
+	//proj = glm::ortho(-hsize, hsize, -hsize/aspect, hsize / aspect, 0.f, 3000.f);
+	//view = glm::lookAt(position - 2000.f*normalize(glm::vec3(0, -1, 0)), position, glm::vec3(0, 0, 1));
 
 	return proj * view;
 }
