@@ -15,9 +15,9 @@ void Camera::update(float dt)
 	float hpi = glm::half_pi<float>() - 0.001;
 	pitch = glm::clamp(pitch, -hpi, hpi);
 
-	float speed = 350.f;
+	float speed = 3.5f;
 	if (Input::isKeyDown(GLFW_KEY_LEFT_SHIFT))
-		speed *= 10;
+		speed = 13.f;
 
 	// for isometric
 	//yaw = glm::pi<float>()/4;
@@ -55,7 +55,7 @@ glm::mat4 Camera::getViewProj()
 	auto size = Window::size();
 	float aspect = size.x / size.y;
 
-	glm::mat4 proj = glm::infinitePerspective(glm::radians(70.f), aspect, 0.1f);
+	glm::mat4 proj = glm::infinitePerspective(glm::radians(fov), aspect, 0.1f);
 	glm::mat4 view = glm::inverse(glm::translate(position) * glm::mat4_cast(glm::rotate(orientation, glm::pi<float>(), glm::vec3(0, 1, 0))));
 
 	// for isometric

@@ -2,6 +2,7 @@
 
 #include "eroder.hpp"
 #include <iostream>
+#include "window.hpp"
 
 void Terrain::generateChunk(glm::ivec2 pos)
 {
@@ -38,8 +39,23 @@ void Terrain::init()
 	shader.add(GL_VERTEX_SHADER, "testvert.glsl");
 	shader.add(GL_TESS_CONTROL_SHADER, "testctrl.glsl");
 	shader.add(GL_TESS_EVALUATION_SHADER, "testeval.glsl");
+	shader.add(GL_GEOMETRY_SHADER, "testgeom.glsl");
 	shader.add(GL_FRAGMENT_SHADER, "testfrag.glsl");
 	shader.compile();
+
+
+
+	int chunkX = glm::floor(camera.position.x / HEIGHTMAP_SIZE.x);
+	int chunkY = glm::floor(camera.position.z / HEIGHTMAP_SIZE.z);
+	float radius = 20;
+	for (int i = -radius; i <= radius; i++)
+	{
+		int width = sqrt(radius*radius - i * i);
+		for (int j = -width; j <= width; j++)
+		{
+			generateChunk(glm::ivec2(chunkX + i, chunkY + j));
+		}
+	}
 }
 
 
@@ -205,7 +221,7 @@ void Terrain::update(glm::vec3 pos)
 	{
 		if (iter->second)
 		{
-			//camera.position.y = iter->second->heightAt(camera.position) + 3.8;
+			camera.position.y = iter->second->heightAt(camera.position) + 1.8;
 		}
 	}
 }
@@ -223,15 +239,22 @@ void Terrain::draw()
 	glBindVertexArray(patch_vao);
 	glPatchParameteri(GL_PATCH_VERTICES, 4);
 
+	shader.uniform("fov", camera.fov);
+	shader.uniform("cameraPos", camera.position);
+	shader.uniform("windowSize", Window::size());
+
+	int patches = 128/64;
+	shader.uniform("numPatches", float(patches));
 	for (auto item : maps)
 	{
 		auto hm = item.second;
 		if (hm)
 		{
 			hm->bind(shader);
-			int patches = 256/64;
+
 			float patchSize = hm->getSize().x / patches;
 			shader.uniform("patchSize", patchSize);
+
 			for (int y = 0; y < patches; y++)
 			{
 				for (int x = 0; x < patches; x++)

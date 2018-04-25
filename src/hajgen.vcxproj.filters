@@ -112,5 +112,8 @@
     <None Include="testeval.glsl">
       <Filter>Source Files\graphics\shaders</Filter>
     </None>
+    <None Include="testgeom.glsl">
+      <Filter>Source Files\graphics\shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -6,8 +6,8 @@
 #include "FastNoise.h"
 #include "camera.hpp"
 
-const glm::vec3 HEIGHTMAP_SIZE(1500.f, 1000.f, 1500.f);
-const size_t HEIGHTMAP_RESOLUTION = 128;
+const glm::vec3 HEIGHTMAP_SIZE(1000.f, 1000.f, 1000.f);
+const size_t HEIGHTMAP_RESOLUTION = 256;
 const int HEIGHTMAP_MAX_ITERATIONS = 1 * HEIGHTMAP_RESOLUTION * HEIGHTMAP_RESOLUTION;
 
 class Heightmap

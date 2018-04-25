@@ -8,6 +8,8 @@ struct Camera
 	glm::vec3 position;
 	glm::quat orientation;
 
+	float fov = 70.f;
+
 	float pitch;
 	float yaw;
 

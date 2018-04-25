@@ -153,6 +153,7 @@
     <None Include="testctrl.glsl" />
     <None Include="testeval.glsl" />
     <None Include="testfrag.glsl" />
+    <None Include="testgeom.glsl" />
     <None Include="testvert.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
