@@ -2,5 +2,7 @@
 
 #include "heightmap.hpp"
 
+const int ERODE_CHUNKS = 5;
 
-glm::ivec2 erodeCenterHeightmap(Heightmap* maps[3 * 3]);
+
+void erodeCenterHeightmap(Heightmap* maps[ERODE_CHUNKS * ERODE_CHUNKS]);

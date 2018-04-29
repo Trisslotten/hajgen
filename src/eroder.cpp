@@ -3,7 +3,7 @@
 #include <iostream>
 
 
-void smoothBordersLR(Heightmap* left, Heightmap* right)
+void joinBordersLR(Heightmap* left, Heightmap* right)
 {
 	//float temp[HEIGHTMAP_RESOLUTION * 7];
 
@@ -28,7 +28,7 @@ void smoothBordersLR(Heightmap* left, Heightmap* right)
 	}
 }
 
-void smoothBordersUD(Heightmap* up, Heightmap* down)
+void joinBordersUD(Heightmap* up, Heightmap* down)
 {
 	for (int i = 0; i < 5; i++)
 	{
@@ -51,9 +51,64 @@ void smoothBordersUD(Heightmap* up, Heightmap* down)
 	}
 }
 
-glm::ivec2 erodeCenterHeightmap(Heightmap * maps[3 * 3])
+void smoothenCenter(Heightmap * maps[3 * 3])
 {
-	auto center = maps[1 + 1 * 3]->getPos();
+	const int side = 2*HEIGHTMAP_RESOLUTION;
+	float temp[side * side];
+
+	int kernelSize = 9;
+	float kernel[] = { 0.000229,	0.005977,	0.060598,	0.241732,	0.382928,	0.241732,	0.060598,	0.005977,0.000229 };
+
+	for (int y = 0; y < side; y++)
+	{
+		for (int x = 0; x < side; x++)
+		{
+			int chunkX = (x + HEIGHTMAP_RESOLUTION / 2) / HEIGHTMAP_RESOLUTION;
+			int chunkY = (x + HEIGHTMAP_RESOLUTION / 2) / HEIGHTMAP_RESOLUTION;
+
+
+			float smoothed = 0.f;
+			for (int i = 0; i < kernelSize; i++)
+			{
+				int offset = i - kernelSize / 2;
+
+				float height = maps[chunkX + chunkY * 3]->heightAt(x, y + offset);
+				smoothed += kernel[i] * height;
+			}
+			temp[x + y * HEIGHTMAP_RESOLUTION] = smoothed;
+
+		}
+	}
+
+	for (int y = 0; y < side; y++)
+	{
+		for (int x = 0; x < side; x++)
+		{
+			float smoothed = 0.f;
+			for (int i = 0; i < kernelSize; i++)
+			{
+				int offset = i - kernelSize / 2;
+
+				smoothed += kernel[i] * temp[index(x + offset, y, HEIGHTMAP_RESOLUTION)];
+			}
+			for (int iy = 0; iy < 3; iy++)
+			{
+				for (int ix = 0; ix < 3; ix++)
+				{
+					int xpos = x - (ix - 1) * (HEIGHTMAP_RESOLUTION - 3);
+					int ypos = y - (iy - 1) * (HEIGHTMAP_RESOLUTION - 3);
+					maps[ix + iy * 3]->setHeightAt(xpos, ypos, smoothed);
+				}
+			}
+		}
+	}
+}
+
+
+void erodeCenterHeightmap(Heightmap * maps[ERODE_CHUNKS*ERODE_CHUNKS])
+{
+	int centerIndex = index(ERODE_CHUNKS/2, ERODE_CHUNKS/2, ERODE_CHUNKS);
+	auto center = maps[centerIndex]->getPos();
 	auto size = HEIGHTMAP_SIZE;
 
 	for (int i = 0; i < HEIGHTMAP_MAX_ITERATIONS; i++)
@@ -66,30 +121,33 @@ glm::ivec2 erodeCenterHeightmap(Heightmap * maps[3 * 3])
 		pos.y = size.z * rn2 + center.y * size.z;
 
 
-		float stepSize = 1.f;
-		float erosionRatio = 0.6f;
-		float depositRatio = 0.5f;
-
+		float stepSize = 1.0f;
+		float erosionRatio = 0.7f;
+		float depositRatio = 0.6f;
+		float erodeSize = 1.f;
 
 		float sediment = 0.f;
+
+		float pixelSize = size.x / float(HEIGHTMAP_RESOLUTION);
 
 
 		for (int j = 0; j < 100; j++)
 		{
-			if (pos.x <= 0 || pos.x >= size.x || pos.y <= 0 || pos.y >= size.z)
-			{
-				//break;
-			}
 			int chunkX = glm::floor(pos.x / HEIGHTMAP_SIZE.x);
 			int chunkY = glm::floor(pos.y / HEIGHTMAP_SIZE.z);
-			chunkX += 1-center.x;
-			chunkY += 1-center.y;
+			chunkX += ERODE_CHUNKS / 2 -center.x;
+			chunkY += ERODE_CHUNKS / 2 -center.y;
 
-			auto current = maps[chunkX + chunkY * 3];
+			if (chunkX < 1 || chunkX > 3 || chunkY < 1 || chunkY > 3)
+			{
+				break;
+			}
+
+			auto current = maps[index(chunkX, chunkY, ERODE_CHUNKS)];
 
 			glm::vec2 dir = current->gradientAt(pos);
 			vel += 0.5f * dir;
-			glm::vec2 step = stepSize * size.x * normalize(vel) / float(HEIGHTMAP_RESOLUTION);
+			glm::vec2 step = stepSize * pixelSize * normalize(vel);
 			vel *= 0.5f;
 
 			if (length(vel) < 0.000001f)
@@ -103,43 +161,71 @@ glm::ivec2 erodeCenterHeightmap(Heightmap * maps[3 * 3])
 			float eroded = erosionRatio * glm::max(currHeight - nextHeight, 0.f) * glm::smoothstep(0.f, 5.f, float(j));
 			eroded -= depositRatio * sediment;
 
-			for (int i = 0; i < 9; i++)
+			glm::vec2 ortho = pixelSize * normalize(glm::mat2(0, 1, -1, 0) * step);
+			for (float side = -erodeSize; side <= erodeSize; side += 1.f)
 			{
-				maps[i]->addHeightAt(pos, -eroded);
+				float weight = glm::smoothstep(erodeSize, 0.f, abs(side));
+				weight = pow(weight, 0.5);
+
+				glm::vec2 offset = side * ortho;
+
+				for (int i = 0; i < ERODE_CHUNKS * ERODE_CHUNKS; i++)
+				{
+					maps[i]->addHeightAt(pos + offset, -eroded * weight);
+				}
 			}
+
 
 			sediment += eroded;
 
 			pos += step;
 		}
 
+		/*
+		if (i % (HEIGHTMAP_MAX_ITERATIONS / 10) == 0)
+		{
+			for (int i = 0; i < 9; i++)
+			{
+				maps[i]->smoothen();
+				maps[i]->addDetail();
+			}
+		}
+		*/
 
 		if (i % (HEIGHTMAP_MAX_ITERATIONS / 100) == 0)
 		{
-			for (int i = 0; i < 3; i++)
+			for (int i = 0; i < ERODE_CHUNKS; i++)
 			{
-				smoothBordersLR(maps[0 + i * 3], maps[1 + i * 3]);
-				smoothBordersLR(maps[1 + i * 3], maps[2 + i * 3]);
+				for (int j = 0; j < ERODE_CHUNKS-1; j++)
+				{
+					joinBordersLR(maps[index(j, i, ERODE_CHUNKS)], maps[index(j + 1, i, ERODE_CHUNKS)]);
 
-				smoothBordersUD(maps[i + 0 * 3], maps[i + 1 * 3]);
-				smoothBordersUD(maps[i + 1 * 3], maps[i + 2 * 3]);
+					joinBordersUD(maps[index(i, j, ERODE_CHUNKS)], maps[index(i, j + 1, ERODE_CHUNKS)]);
+				}
 			}
 		}
 	}
 
-	for (int i = 0; i < 3; i++)
+	for (int i = 1; i < 4; i++)
 	{
-		smoothBordersLR(maps[0 + i * 3], maps[1 + i * 3]);
-		smoothBordersLR(maps[1 + i * 3], maps[2 + i * 3]);
-
-		smoothBordersUD(maps[i + 0 * 3], maps[i + 1 * 3]);
-		smoothBordersUD(maps[i + 1 * 3], maps[i + 2 * 3]);
+		for (int j = 1; j < 4; j++)
+		{
+			maps[index(i, j, ERODE_CHUNKS)]->smoothen();
+		}
 	}
 
-	maps[1 + 1 * 3]->eroded = true;
+	for (int i = 0; i < ERODE_CHUNKS; i++)
+	{
+		for (int j = 0; j < ERODE_CHUNKS - 1; j++)
+		{
+			joinBordersLR(maps[index(j, i, ERODE_CHUNKS)], maps[index(j + 1, i, ERODE_CHUNKS)]);
+
+			joinBordersUD(maps[index(i, j, ERODE_CHUNKS)], maps[index(i, j + 1, ERODE_CHUNKS)]);
+		}
+	}
+
+	maps[centerIndex]->eroded = true;
 
 
 	delete[] maps;
-	// return center pos
-	return center;
 }

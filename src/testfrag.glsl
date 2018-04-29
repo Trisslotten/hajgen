@@ -6,8 +6,9 @@ in vec2 getex;
 in vec3 geposition;
 in vec3 genormal;
 
+uniform vec2 hmPos;
 uniform sampler2D heightmap;
-
+uniform int eroded;
 uniform vec3 size;
 
 float CubicHermite (float A, float B, float C, float D, float t)
@@ -66,17 +67,19 @@ vec3 sampleNormal(vec2 uv) {
 	float t = 1.0/heightmapSize.x;
 
 	vec4 h;
+	
 	/*
 	h[0] = texture(heightmap, uv + t * vec2(0,-1)).r;
 	h[1] = texture(heightmap, uv + t * vec2(-1,0)).r;
 	h[2] = texture(heightmap, uv + t * vec2(1, 0)).r;
 	h[3] = texture(heightmap, uv + t * vec2(0, 1)).r;
 	*/
-
+	
 	h[0] = BicubicHermite(heightmap, uv + t * vec2(0,-1));
 	h[1] = BicubicHermite(heightmap, uv + t * vec2(-1,0));
 	h[2] = BicubicHermite(heightmap, uv + t * vec2(1, 0));
 	h[3] = BicubicHermite(heightmap, uv + t * vec2(0, 1));
+	
 
 	float ratioX = t*size.x/(size.y);
 	float ratioZ = t*size.z/(size.y);
@@ -87,13 +90,28 @@ vec3 sampleNormal(vec2 uv) {
 	return normalize(n);
 }
 
-float rand(float n) { 
+float rand(float n) 
+{ 
 	return fract(sin(n*4.1414) * 43758.5453);
 }
-float rand2(float n) { 
+float rand2(float n) 
+{ 
 	return 2.0*fract(sin(n*13.5135) * 28968.2317) - 1.0;
 }
 
+float rand(vec2 n) 
+{
+	return fract(sin(dot(n, vec2(13.12589,4.1414))) * 43758.5453);
+}
+
+const float PI = 3.1415;
+vec3 color(float i) {
+    vec3 result;
+    result.r = 0.5*sin(i) + 0.5;
+    result.g = 0.5*sin(i + 2.0*PI*1.0/3.0) + 0.5;
+    result.b = 0.5*sin(i + 2.0*PI*2.0/3.0) + 0.5;
+    return result;
+}
 
 float ambientOcclusion(vec2 uv, vec3 normal) {
 	
@@ -112,7 +130,7 @@ float ambientOcclusion(vec2 uv, vec3 normal) {
 		hemi += rand2(i + seed) * tangent;
 		hemi += rand2(i+10 + seed) * bitangent;
 		hemi += rand(i + seed) * normal;
-		hemi = 30 * rand(i + 100+ seed) * normalize(hemi);
+		hemi = rand(i + 100+ seed) * normalize(hemi);
 
 
 		vec2 coord = uv + hemi.xz / size.xz;
@@ -160,6 +178,13 @@ vec3 chooseMat(vec3 pos, vec3 normal) {
 	hinterval = 0.005;
 	result = mix(result, colorRock, smoothstep(threshold + hinterval, threshold - hinterval, leaning));
 
+	result = colorGrass;
+
+	if(eroded == 1) {
+		result = vec3(0,1,0);
+	} else {
+		result = vec3(1,0,0);
+	}
 
 	return result;
 }

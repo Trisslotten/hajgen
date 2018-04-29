@@ -6,9 +6,11 @@
 #include "FastNoise.h"
 #include "camera.hpp"
 
-const glm::vec3 HEIGHTMAP_SIZE(1000.f, 1000.f, 1000.f);
-const size_t HEIGHTMAP_RESOLUTION = 256;
+const glm::vec3 HEIGHTMAP_SIZE(1000.f, 2000.f, 1000.f);
+const size_t HEIGHTMAP_RESOLUTION = 128;
 const int HEIGHTMAP_MAX_ITERATIONS = 1 * HEIGHTMAP_RESOLUTION * HEIGHTMAP_RESOLUTION;
+
+size_t index(int x, int y, int size);
 
 class Heightmap
 {
@@ -29,8 +31,6 @@ class Heightmap
 
 
 	void generate();
-	void smoothen();
-	void addDetail();
 
 
 
@@ -73,6 +73,8 @@ public:
 
 	glm::vec2 gradientAt(glm::vec2 pos);
 
+	void smoothen();
+	void addDetail();
 
 	void upload();
 	void bind(ShaderProgram& shader);

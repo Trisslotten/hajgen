@@ -111,8 +111,8 @@ void main() {
 
 	tetex = uv;
 
-	teposition = pos.xyy;
-	teposition.y = size.y * texture(heightmap, uv).r;
+	teposition.xz = pos.xy;
+	teposition.y = size.y * BicubicHermite(heightmap, uv);
 	teposition.xz += size.xz * hmPos;
 
 	tenormal = sampleNormal(uv);

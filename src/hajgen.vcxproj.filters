@@ -63,6 +63,12 @@
     <ClCompile Include="misc.cpp">
       <Filter>Source Files\util</Filter>
     </ClCompile>
+    <ClCompile Include="lodepng.cpp">
+      <Filter>Source Files\util</Filter>
+    </ClCompile>
+    <ClCompile Include="texture.cpp">
+      <Filter>Source Files\graphics</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="timer.hpp">
@@ -96,6 +102,12 @@
       <Filter>Source Files\terrain</Filter>
     </ClInclude>
     <ClInclude Include="misc.hpp">
+      <Filter>Source Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="texture.hpp">
+      <Filter>Source Files\graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="lodepng.h">
       <Filter>Source Files\util</Filter>
     </ClInclude>
   </ItemGroup>

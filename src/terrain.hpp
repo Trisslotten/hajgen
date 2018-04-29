@@ -28,17 +28,39 @@ class Terrain
 
 	std::unordered_map<glm::ivec2, Heightmap*> maps;
 
-	std::vector<std::future<Heightmap*>> generating;
-	std::vector<std::future<glm::ivec2>> eroding;
-	std::vector<glm::ivec2> erodingPositions;
-
+	struct ErodePair
+	{
+		std::future<void> future;
+		glm::ivec2 pos;
+	};
+	std::vector<ErodePair> eroding;
 	std::vector<glm::ivec2> toErode;
+
+
+	struct CreatePair
+	{
+		std::future<Heightmap*> future;
+		glm::ivec2 pos;
+	};
+	std::vector<CreatePair> creating;
+	std::vector<glm::ivec2> toCreate;
+
 	std::queue<glm::ivec2> toGenerate;
+
+	bool inCreation(glm::ivec2 pos);
+	bool alreadyCreated(glm::ivec2 pos);
+
+	bool canErode(glm::ivec2 pos);
+	bool canCreate(glm::ivec2 pos);
+
 
 	ShaderProgram shader;
 
 	Timer dtimer;
 	Camera camera;
+	glm::ivec2 lastChunk;
+
+	glm::ivec2 getChunkPos(glm::vec3 pos);
 
 	void generateChunk(glm::ivec2 pos);
 public:

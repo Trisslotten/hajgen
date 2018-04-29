@@ -112,6 +112,10 @@ void Window::open(int width, int height)
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
+
+
+
+	glfwMaximizeWindow(window);
 }
 
 void Window::showCursor(bool val)

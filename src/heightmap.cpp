@@ -170,8 +170,6 @@ float Heightmap::getNoise(float x, float y)
 
 	result += 0.2f;
 
-	//result = 0.01f * length(fgrad);
-
 	return result;
 }
 
@@ -197,19 +195,22 @@ void Heightmap::generate()
 
 void Heightmap::smoothen()
 {
-	float kernel[] = { 0.00135,	0.157305,	0.68269,	0.157305,	0.00135 };
+	// sigma 1.0
+	int kernelSize = 5;
+	float kernel[] = { 0.006194,	0.196125,	0.595362,	0.196125,	0.006194 };
 
 	for (int y = 0; y < resolution; y++)
 	{
 		for (int x = 0; x < resolution; x++) 
 		{
 			float smoothed = 0.f;
-			for (int i = 0; i < 5; i++)
+			for (int i = 0; i < kernelSize; i++)
 			{
-				int offset = i - 2;
+				int offset = i - kernelSize / 2;
 
 				smoothed += kernel[i] * noisemap[index(x, y + offset, resolution)];
 			}
+
 			smoothTemp[x + y * resolution] = smoothed;
 		}
 	}
@@ -221,9 +222,9 @@ void Heightmap::smoothen()
 		for (int x = 0; x < resolution; x++)
 		{
 			float smoothed = 0.f;
-			for (int i = 0; i < 5; i++)
+			for (int i = 0; i < kernelSize; i++)
 			{
-				int offset = i - 2;
+				int offset = i - kernelSize / 2;
 
 				smoothed += kernel[i] * noisemap[index(x + offset, y, resolution)];
 			}
@@ -253,8 +254,10 @@ float Heightmap::heightAt(int x, int y)
 {
 
 	float result = size.y * glm::max(noisemap[index(x, y, resolution)], 0.f);
-	if (x < 0 || x >= resolution || y < 0|| y >= resolution)
-		result += 0.2;
+	if (x < 0 || x >= resolution || y < 0 || y >= resolution)
+	{
+		//result += 0.2;
+	}
 	return result;
 }
 

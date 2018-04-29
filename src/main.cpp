@@ -8,7 +8,7 @@
 
 int main()
 {
-	Window::open(1920 - 100, 1080 - 100);
+	Window::open(1280, 720);
 
 	Terrain terrain;
 	terrain.init();
