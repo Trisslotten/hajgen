@@ -87,7 +87,7 @@ void Window::open(int width, int height)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
 
-	//glfwWindowHint(GLFW_SAMPLES, 8);
+	glfwWindowHint(GLFW_SAMPLES, 8);
 
 	window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
 	if (!window)
@@ -108,12 +108,16 @@ void Window::open(int width, int height)
 	glfwSetScrollCallback(window, scrollCallback);
 	glfwSetWindowSizeCallback(window, resizeCallback);
 
-	glfwSwapInterval(1);
+	glfwSwapInterval(0);
+
+	int major, minor, rev;
+	glfwGetVersion(&major, &minor, &rev);
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
-
-
+	glEnable(GL_BLEND); 
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	//glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
 
 	glfwMaximizeWindow(window);
 }

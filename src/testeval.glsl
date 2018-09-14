@@ -2,7 +2,7 @@
 
 layout(quads, equal_spacing, cw) in;
 
-in vec2 tctex[];
+in vec2 tcPatchPos[];
 
 out vec2 tetex;
 out vec3 teposition;
@@ -13,8 +13,8 @@ uniform sampler2D heightmap;
 uniform vec3 size;
 uniform mat4 proj_view;
 
+uniform sampler2D texRockDisp;
 
-uniform vec2 patchPos;
 uniform float patchSize;
 uniform vec2 hmPos;
 
@@ -103,7 +103,7 @@ vec3 sampleNormal(vec2 uv) {
 }
 
 void main() {
-	vec2 pos = patchPos + patchSize * gl_TessCoord.xy;
+	vec2 pos = tcPatchPos[0] + patchSize * gl_TessCoord.xy;
 	
 	vec2 uv = pos / size.xz;
 	float t = 1.5/textureSize(heightmap, 0).x;
@@ -112,10 +112,19 @@ void main() {
 	tetex = uv;
 
 	teposition.xz = pos.xy;
-	teposition.y = size.y * BicubicHermite(heightmap, uv);
+	//teposition.y = size.y * BicubicHermite(heightmap, uv);
+	teposition.y = size.y * texture(heightmap, uv).r;
 	teposition.xz += size.xz * hmPos;
 
 	tenormal = sampleNormal(uv);
+
+	
+	vec2 uvMedium = teposition.xz/100.0;
+	float rockDisp = 2.0*texture(texRockDisp, uvMedium).r - 1.0;
+	float threshold = 0.9;
+	float hinterval = 0.1;
+	float weight = smoothstep( threshold + hinterval, threshold - hinterval, tenormal.y);
+	//teposition += 3.0 * tenormal * rockDisp * weight;
 
 	gl_Position = proj_view * vec4(teposition, 1.0);
 }

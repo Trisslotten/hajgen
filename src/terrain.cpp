@@ -1,5 +1,6 @@
 #include "terrain.hpp"
 
+#include <random>
 #include "eroder.hpp"
 #include <iostream>
 #include "window.hpp"
@@ -27,29 +28,92 @@ Terrain::~Terrain()
 
 void Terrain::init()
 {
-	float patch_vertices[] = {
-		0.0, 0.0,
-		1.0, 0.0,
-		0.0, 1.0,
-		1.0, 1.0
-	};
+	glm::vec2 *patch_vertices = new glm::vec2[MAX_PATCHES * MAX_PATCHES];
+
+	int counter = 0;
+	for (int i = 0; i < MAX_PATCHES; i++)
+	{
+		for (int j = 0; j <= i; j++)
+		{
+			patch_vertices[counter] = glm::vec2(j, i);
+			counter++;
+		}
+		for (int j = 0; j < i; j++)
+		{
+			patch_vertices[counter] = glm::vec2(i, j);
+			counter++;
+		}
+	}
+
+
+
 	glGenVertexArrays(1, &patch_vao);
 	glBindVertexArray(patch_vao);
 	glGenBuffers(1, &patch_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, patch_vbo);
-	glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), patch_vertices, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2)*MAX_PATCHES*MAX_PATCHES, patch_vertices, GL_STATIC_DRAW);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (GLvoid*)0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (GLvoid*)0);
 
-	shader.add(GL_VERTEX_SHADER, "testvert.glsl");
-	shader.add(GL_TESS_CONTROL_SHADER, "testctrl.glsl");
+	delete[] patch_vertices;
+
+	shader.add(GL_VERTEX_SHADER,          "testvert.glsl");
+	shader.add(GL_TESS_CONTROL_SHADER,    "testctrl.glsl");
 	shader.add(GL_TESS_EVALUATION_SHADER, "testeval.glsl");
-	shader.add(GL_GEOMETRY_SHADER, "testgeom.glsl");
-	shader.add(GL_FRAGMENT_SHADER, "testfrag.glsl");
+	shader.add(GL_GEOMETRY_SHADER,        "testgeom.glsl");
+	shader.add(GL_FRAGMENT_SHADER,        "testfrag.glsl");
 	shader.compile();
 
 
+	treeShader.add(GL_VERTEX_SHADER,   "treesvert.glsl");
+	treeShader.add(GL_GEOMETRY_SHADER, "treesgeom.glsl");
+	treeShader.add(GL_FRAGMENT_SHADER, "treesfrag.glsl");
+	treeShader.compile();
+
+
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_real_distribution<float> dist(0.0, HEIGHTMAP_SIZE.x);
+	float* treePositions = new float[2*numTrees];
+	for (int i = 0; i < numTrees; i++)
+	{
+		float x = dist(gen);
+		float y = dist(gen);
+		treePositions[i * 2] = x;
+		treePositions[i * 2 + 1] = y;
+	}
+	treesPos = glm::ivec2(0);
+	glGenVertexArrays(1, &tree_vao);
+	glBindVertexArray(tree_vao);
+	glGenBuffers(1, &tree_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, tree_vbo);
+	glBufferData(GL_ARRAY_BUFFER, 2 * numTrees * sizeof(float), treePositions, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (GLvoid*)0);
+	glBindVertexArray(0);
+	delete[] treePositions;
+	texTree.hint(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	texTree.hint(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	texTree.loadTexture("assets/textures/tree4.png", 1);
+
+
+	textures["texGround"].loadTexture("assets/textures/ground.png");
+	textures["texGrass"].loadTexture("assets/textures/grass.png");
+	textures["texRockGround"].loadTexture("assets/textures/rockground.png");
+	textures["texSnow"].loadTexture("assets/textures/snow.png");
+	textures["texRockDisp"].loadTexture("assets/textures/rock_displacement.png");
+
 	lastChunk.x = 1;
+
+	float radius = 2;
+	for (int i = -radius; i <= radius; i++)
+	{
+		int width = sqrt(radius*radius - i * i);
+		for (int j = -width; j <= width; j++)
+		{
+			generateChunk(glm::ivec2(i, j));
+		}
+	}
 }
 
 bool Terrain::inCreation(glm::ivec2 pos)
@@ -115,7 +179,7 @@ void Terrain::update(glm::vec3 pos)
 	if (currChunk != lastChunk)
 	{
 		lastChunk = currChunk;
-		float radius = 2;
+		int radius = 1;
 		for (int i = -radius; i <= radius; i++)
 		{
 			int width = sqrt(radius*radius - i * i);
@@ -151,19 +215,20 @@ void Terrain::update(glm::vec3 pos)
 		}
 	}
 
-	int maxCreatingAsyncs = 3;
+	int maxCreatingAsyncs = 2;
 	int end = -1;
 	for (int i = 0; i < toCreate.size() && creating.size() < maxCreatingAsyncs; i++)
 	{
 		end = i;
 		auto pos = toCreate[i];
+		std::cout << "Creating tile at: " << pos.x << ", " << pos.y << "\n";
 		creating.push_back({ std::async(std::launch::async, [pos]() {
 			return new Heightmap(pos);
 		}), pos });
 	}
 	if (end >= 0)
 	{
-		toCreate.erase(toCreate.begin(), toCreate.begin() + end);;
+		toCreate.erase(toCreate.begin(), toCreate.begin() + end+1);;
 	}
 
 
@@ -183,7 +248,7 @@ void Terrain::update(glm::vec3 pos)
 	}
 
 
-	int maxErodingAsyncs = 4;
+	int maxErodingAsyncs = 1;
 	for (int i = 0; i < toErode.size() && eroding.size() < maxErodingAsyncs; i++)
 	{
 		auto pos = toErode[i];
@@ -213,7 +278,6 @@ void Terrain::update(glm::vec3 pos)
 			continue;
 		}
 
-		// might be able to remove this
 		for (auto& pair : eroding)
 		{
 			auto dist = abs(pair.pos - pos);
@@ -282,11 +346,11 @@ void Terrain::draw()
 	glClearColor(47.f / 255, 141.f / 255, 255.f / 255, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	glm::mat4 viewProj = camera.getViewProj();
+
+
 	shader.use();
-
-	shader.uniform("proj_view", camera.getViewProj());
-
-
+	shader.uniform("proj_view", viewProj);
 	glBindVertexArray(patch_vao);
 	glPatchParameteri(GL_PATCH_VERTICES, 1);
 
@@ -294,9 +358,17 @@ void Terrain::draw()
 	shader.uniform("cameraPos", camera.position);
 	shader.uniform("windowSize", Window::size());
 
+	int id = 2;
+	for (auto& item : textures)
+	{
+		item.second.bind(id);
+		shader.uniform(item.first, id);
+		id++;
+	}
 
-	int patches = 256/64;
+	int patches = MAX_PATCHES;
 	shader.uniform("numPatches", float(patches));
+	
 	for (auto item : maps)
 	{
 		auto hm = item.second;
@@ -304,17 +376,50 @@ void Terrain::draw()
 		{
 			hm->bind(shader);
 
-			shader.uniform("eroded", hm->eroded ? 1 : 0);
-			float patchSize = hm->getSize().x / patches;
-			shader.uniform("patchSize", patchSize);
+			float pixelsPerHm = 200;
+			glm::ivec2 hmpos = hm->getPos();
+			glm::vec3 pos = HEIGHTMAP_SIZE * glm::vec3(hmpos.x + 0.5, 0, hmpos.y + 0.5);
+			float dist = length(camera.position - pos);
+			float b = dist * tan(camera.fov / 2.0);
+			float ratio = HEIGHTMAP_SIZE.x / (2.0*b);
+			float pixels = Window::size().x * ratio;
+			float res = pixels / pixelsPerHm;
+			
+			float numPatches = glm::clamp(glm::pow(2.f, glm::ceil(glm::log(res) / glm::log(2.f))), 1.f, float(MAX_PATCHES));
 
-			for (int y = 0; y < patches; y++)
+			//numPatches = MAX_PATCHES;
+
+			shader.uniform("numPatches", numPatches);
+
+			shader.uniform("eroded", hm->eroded ? 1 : 0);
+			float patchSize = hm->getSize().x / numPatches;
+			shader.uniform("patchSize", patchSize);
+			glDrawArrays(GL_PATCHES, 0, numPatches * numPatches);
+		}
+	}
+
+
+
+
+
+	treeShader.use();
+	treeShader.uniform("proj_view", viewProj);
+	treeShader.uniform("cameraPos", camera.position);
+	texTree.bind(1);
+	treeShader.uniform("texTree", 1);
+	for (auto item : maps)
+	{
+		auto hm = item.second;
+		if (hm)
+		{
+			glm::ivec2 hmpos = hm->getPos();
+			glm::vec3 pos = HEIGHTMAP_SIZE * glm::vec3(hmpos.x + 0.5, 0, hmpos.y + 0.5);
+			float dist = length(camera.position - pos);
+			if (dist < 15000.f)
 			{
-				for (int x = 0; x < patches; x++)
-				{
-					shader.uniform("patchPos", patchSize * glm::vec2(x, y));
-					glDrawArrays(GL_PATCHES, 0, 1);
-				}
+				hm->bind(treeShader);
+				glBindVertexArray(tree_vao);
+				glDrawArrays(GL_POINTS, 0, numTrees);
 			}
 		}
 	}

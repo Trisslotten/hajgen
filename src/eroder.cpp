@@ -122,9 +122,9 @@ void erodeCenterHeightmap(Heightmap * maps[ERODE_CHUNKS*ERODE_CHUNKS])
 
 
 		float stepSize = 1.0f;
-		float erosionRatio = 0.7f;
-		float depositRatio = 0.6f;
-		float erodeSize = 1.f;
+		float erosionRatio = 0.3f;
+		float depositRatio = 0.7f;
+		float erodeSize = 0.f;
 
 		float sediment = 0.f;
 
@@ -164,11 +164,13 @@ void erodeCenterHeightmap(Heightmap * maps[ERODE_CHUNKS*ERODE_CHUNKS])
 			glm::vec2 ortho = pixelSize * normalize(glm::mat2(0, 1, -1, 0) * step);
 			for (float side = -erodeSize; side <= erodeSize; side += 1.f)
 			{
-				float weight = glm::smoothstep(erodeSize, 0.f, abs(side));
+				float weight = glm::smoothstep(erodeSize, abs(side), 0.f);
 				weight = pow(weight, 0.5);
+				weight = 1.f;
 
 				glm::vec2 offset = side * ortho;
 
+				// TODO: only erode chunks close to pos + offset, 2 or 4
 				for (int i = 0; i < ERODE_CHUNKS * ERODE_CHUNKS; i++)
 				{
 					maps[i]->addHeightAt(pos + offset, -eroded * weight);
@@ -181,16 +183,6 @@ void erodeCenterHeightmap(Heightmap * maps[ERODE_CHUNKS*ERODE_CHUNKS])
 			pos += step;
 		}
 
-		/*
-		if (i % (HEIGHTMAP_MAX_ITERATIONS / 10) == 0)
-		{
-			for (int i = 0; i < 9; i++)
-			{
-				maps[i]->smoothen();
-				maps[i]->addDetail();
-			}
-		}
-		*/
 
 		if (i % (HEIGHTMAP_MAX_ITERATIONS / 100) == 0)
 		{
@@ -211,6 +203,8 @@ void erodeCenterHeightmap(Heightmap * maps[ERODE_CHUNKS*ERODE_CHUNKS])
 		for (int j = 1; j < 4; j++)
 		{
 			maps[index(i, j, ERODE_CHUNKS)]->smoothen();
+			maps[index(i, j, ERODE_CHUNKS)]->addDetail();
+			maps[index(i, j, ERODE_CHUNKS)]->addRockRoughness();
 		}
 	}
 

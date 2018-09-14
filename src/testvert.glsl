@@ -1,8 +1,11 @@
 #version 440 core
-layout(location = 0) in vec2 tex;
+layout(location = 0) in vec2 pos;
 
-out vec2 vtex;
+out vec2 vPatchPos;
+
+uniform float numPatches;
+uniform vec3 size;
 
 void main() {
-	vtex = tex;
+	vPatchPos = size.xz * pos / numPatches;
 }

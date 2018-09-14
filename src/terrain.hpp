@@ -5,6 +5,7 @@
 #include <future>
 #include <unordered_map>
 #include <glm\glm.hpp>
+#include "texture.hpp"
 
 
 namespace std
@@ -20,11 +21,22 @@ namespace std
 	};
 }
 
+const int numTrees = int(HEIGHTMAP_SIZE.x * HEIGHTMAP_SIZE.z / 250.f);
+
+const int MAX_PATCHES = 64;
 
 class Terrain
 {
 	GLuint patch_vao;
 	GLuint patch_vbo;
+
+
+	GLuint tree_vao;
+	GLuint tree_vbo;
+	ShaderProgram treeShader;
+	glm::ivec2 treesPos;
+	Texture texTree;
+
 
 	std::unordered_map<glm::ivec2, Heightmap*> maps;
 
@@ -54,7 +66,10 @@ class Terrain
 	bool canCreate(glm::ivec2 pos);
 
 
+	std::unordered_map<std::string, Texture> textures;
+
 	ShaderProgram shader;
+
 
 	Timer dtimer;
 	Camera camera;

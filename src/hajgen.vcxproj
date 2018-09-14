@@ -159,6 +159,9 @@
     <None Include="testfrag.glsl" />
     <None Include="testgeom.glsl" />
     <None Include="testvert.glsl" />
+    <None Include="treesfrag.glsl" />
+    <None Include="treesgeom.glsl" />
+    <None Include="treesvert.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,22 +1,21 @@
 #version 440 core
 
 layout(vertices = 1) out;
-in vec2 vtex[];
-out vec2 tctex[];
+in vec2 vPatchPos[];
+out vec2 tcPatchPos[];
 
 uniform sampler2D heightmap;
 uniform float numPatches;
 uniform vec3 size;
 uniform vec2 hmPos;
 uniform float patchSize;
-uniform vec2 patchPos;
 
 uniform mat4 proj_view;
 uniform float fov;
 uniform vec3 cameraPos;
 uniform vec2 windowSize;
 
-const float pixelsPerQuad = 20.0;
+const float pixelsPerQuad = 5.0;
 
 
 // opengl insights modified
@@ -28,14 +27,15 @@ bool vertInFrustum(vec4 p)
 
 float level(vec2 offset) 
 {
-	vec2 pos = patchPos + 0.5*patchSize + patchSize * offset;
+	vec2 pos = vPatchPos[0] + 0.5*patchSize + patchSize * offset;
 	pos += size.xz * hmPos;
 	float dist = length(vec3(pos.x, 0, pos.y) - cameraPos);
 	float b = dist*tan(fov/2.0);
 	float ratio = patchSize/(2.0*b);
 	float pixels = windowSize.x * ratio;
 	float res = pixels/pixelsPerQuad;
-	return pow(2, ceil(log(res)/log(2)));
+	//res = pow(res, 2.f);
+	return max(pow(2.f, ceil(log(res)/log(2))), 1.f);
 }
 
 void main() 
@@ -51,7 +51,7 @@ void main()
 	gl_TessLevelInner[1] = 0.0;
 
 
-	vec2 pos = patchPos + size.xz * hmPos;
+	vec2 pos = vPatchPos[0] + size.xz * hmPos;
 	vec2 corners[4];
 	corners[0] = pos;
 	corners[1] = pos + patchSize * vec2(0,1);
@@ -70,7 +70,7 @@ void main()
 	   vertInFrustum(transformed[3])) 
 	{
 		
-		tctex[gl_InvocationID] = vtex[gl_InvocationID];
+		tcPatchPos[gl_InvocationID] = vPatchPos[gl_InvocationID];
 
 	
 		float currLevel = level(vec2(0));

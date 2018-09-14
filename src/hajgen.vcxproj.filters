@@ -127,5 +127,14 @@
     <None Include="testgeom.glsl">
       <Filter>Source Files\graphics\shaders</Filter>
     </None>
+    <None Include="treesvert.glsl">
+      <Filter>Source Files\graphics\shaders</Filter>
+    </None>
+    <None Include="treesgeom.glsl">
+      <Filter>Source Files\graphics\shaders</Filter>
+    </None>
+    <None Include="treesfrag.glsl">
+      <Filter>Source Files\graphics\shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

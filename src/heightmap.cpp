@@ -8,6 +8,7 @@
 #include <glm\glm.hpp>
 #include <glm\gtx\quaternion.hpp>
 #include "window.hpp"
+#include "lodepng.h"
 #include "misc.hpp"
 
 size_t index(int x, int y, int size)
@@ -32,7 +33,7 @@ Heightmap::Heightmap(glm::vec2 _pos)
 	seed = 6050;
 
 	size = HEIGHTMAP_SIZE;
-	scale = 1.0f;
+	scale = 0.5f;
 
 
 	resolution = HEIGHTMAP_RESOLUTION;
@@ -87,6 +88,11 @@ void Heightmap::bind(ShaderProgram& shader)
 	shader.uniform("hmPos", glm::vec2(pos));
 }
 
+void Heightmap::bindHeightmapTexture(unsigned int slot)
+{
+	glActiveTexture(GL_TEXTURE0 + slot);
+	glBindTexture(GL_TEXTURE_2D, heightmapTex);
+}
 
 
 glm::vec2 Heightmap::gradientAt(glm::vec2 pos)
@@ -105,20 +111,20 @@ void Heightmap::configureNoises()
 
 	ns.mountains.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
 	ns.mountains.SetSeed(seed);
-	ns.mountains.SetFractalOctaves(20);
-	ns.mountains.SetFrequency(0.001f *  mult);
+	ns.mountains.SetFractalOctaves(7);
+	ns.mountains.SetFrequency(0.0005f *  mult);
 
 
 	ns.fields.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
 	ns.fields.SetSeed(seed);
-	ns.fields.SetFractalOctaves(20);
+	ns.fields.SetFractalOctaves(3);
 	ns.fields.SetFrequency(0.001f * mult);
 
 
 	ns.biome.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
 	ns.biome.SetSeed(seed);
-	ns.biome.SetFractalOctaves(2);
-	ns.biome.SetFrequency(0.0005f * mult);
+	ns.biome.SetFractalOctaves(1);
+	ns.biome.SetFrequency(0.00005f * mult);
 
 
 	ns.detail.SetNoiseType(FastNoise::NoiseType::SimplexFractal);
@@ -130,8 +136,8 @@ void Heightmap::configureNoises()
 float Heightmap::getBiome(float x, float y)
 {
 	float biome = 0.5f*ns.biome.GetNoise(x, y) + 0.5f;
-	biome = glm::smoothstep(0.1f, 0.8f, biome);
-	biome = glm::pow(biome, 0.5f);
+	biome = glm::smoothstep(0.1f, 0.6f, biome);
+	//biome = glm::pow(biome, 2.2f);
 
 	return biome;
 }
@@ -149,10 +155,10 @@ float Heightmap::mountainNoise(float x, float y)
 	float mountains = 0.5f*ns.mountains.GetNoise(x, y) + 0.5f;
 	//mountains = pow(mountains, 2.f);
 	mountains = 1.f - glm::abs(2.f*mountains - 1.f);
-	float mountains2 = 0.5f*ns.mountains.GetNoise(-y, x) + 0.5f;
-	mountains *= 0.6;
-
-	return mountains + 0.5f*mountains2;
+	mountains = pow(mountains, 5.f);
+	float mountains2 = 0.5f*ns.mountains.GetNoise(-y, -x) + 0.5f;
+	mountains *= 0.3f;
+	return mountains + 1.5f*mountains2;
 }
 
 
@@ -197,7 +203,7 @@ void Heightmap::smoothen()
 {
 	// sigma 1.0
 	int kernelSize = 5;
-	float kernel[] = { 0.006194,	0.196125,	0.595362,	0.196125,	0.006194 };
+	float kernel[] = { 0.00135,	0.157305,	0.68269,	0.157305,	0.00135 };
 
 	for (int y = 0; y < resolution; y++)
 	{
@@ -245,6 +251,43 @@ void Heightmap::addDetail()
 			noisemap[x + y * resolution] += 0.0001f*ns.detail.GetNoise(x, y);
 		}
 	}
+}
+
+void Heightmap::addRockRoughness()
+{
+	static Image image("assets/textures/rock_displacement.png");
+
+	//std::cout << "Roughness " << image.colorAt(glm::vec2(0.5)).r << "\n";
+
+	memcpy(smoothTemp, noisemap, sizeof(float) * resolution * resolution);
+
+	for (int y = 0; y < resolution; y++)
+	{
+		for (int x = 0; x < resolution; x++)
+		{
+			
+			//vec2 uvMedium = teposition.xz / 1000.0;
+			glm::vec2 worldPos = glm::vec2(x, y) / float(resolution);
+			worldPos *= glm::vec2(size.x, size.z);
+			worldPos += glm::vec2(size.x, size.z) * glm::vec2(pos);
+			glm::vec2 uv = worldPos / 1000.f;
+
+			glm::vec3 normal = normalAt(worldPos);
+
+			float threshold = 0.9;
+			float hinterval = 0.1;
+			float weight = glm::smoothstep(threshold + hinterval, threshold - hinterval, normal.y);
+			glm::vec3 disp = 5.f * normal * weight * (2.f*image.colorAt(uv).r - 1.f);
+			float height = heightAt(worldPos) + disp.y;
+			
+			std::swap(noisemap, smoothTemp);
+			//setHeightAt(worldPos + glm::vec2(disp.x, disp.z), height);
+			addHeightAt(x,y, 4.f*(2.f*image.colorAt(uv).r - 1.f) * weight);
+			//addHeightAt(x, y, 5.f*(2.f*image.colorAt(uv).r - 1.f));
+			std::swap(noisemap, smoothTemp);
+		}
+	}
+	std::swap(noisemap, smoothTemp);
 }
 
 
@@ -302,11 +345,13 @@ glm::vec3 Heightmap::normalAt(glm::vec2 pos)
 {
 	float t = 1.f / resolution;
 
+	float wt = t * size.x;
+
 	glm::vec4 h;
-	h[0] = heightAt(pos + glm::vec2(0, -1) / size.x) / size.y;
-	h[1] = heightAt(pos + glm::vec2(-1, 0) / size.x) / size.y;
-	h[2] = heightAt(pos + glm::vec2(1, 0) / size.x) / size.y;
-	h[3] = heightAt(pos + glm::vec2(0, 1) / size.x) / size.y;
+	h[0] = heightAt(pos + glm::vec2(0, -1) * wt) / size.y;
+	h[1] = heightAt(pos + glm::vec2(-1, 0) * wt) / size.y;
+	h[2] = heightAt(pos + glm::vec2(1, 0) * wt) / size.y;
+	h[3] = heightAt(pos + glm::vec2(0, 1) * wt) / size.y;
 
 	float ratioX = t * size.x / (size.y);
 	float ratioZ = t * size.z / (size.y);
@@ -368,4 +413,42 @@ void Heightmap::addHeightAt(glm::vec2 _pos, float height)
 	addHeightAt(x + 1, y, height * tx * (1.f - ty));
 	addHeightAt(x + 1, y + 1, height * tx * ty);
 
+}
+
+Image::Image(const std::string & path)
+{
+	unsigned error = lodepng::decode(image, width, height, path);
+}
+
+glm::vec4 Image::colorAt(int x, int y)
+{
+	x = x % width;
+	y = y % height;
+	int i = 4 * x + y * width * 4;
+	unsigned char r = image[i];
+	unsigned char g = image[i + 1];
+	unsigned char b = image[i + 2];
+	unsigned char a = image[i + 3];
+	return glm::vec4(r,g,b,a) / 255.f;
+}
+
+glm::vec4 Image::colorAt(glm::vec2 uv)
+{
+	int x = uv.x * width;
+	int y = uv.y * height;
+
+	float tx = glm::fract(width * uv.x);
+	float ty = glm::fract(height* uv.y);
+
+	glm::vec4 c00 = colorAt(x, y);
+	glm::vec4 c10 = colorAt(x + 1, y);
+	glm::vec4 c01 = colorAt(x, y + 1);
+	glm::vec4 c11 = colorAt(x + 1, y + 1);
+
+	glm::vec4 result;
+	result += c00 * (1.f - tx) * (1.f - ty);
+	result += c10 * tx * (1.f - ty);
+	result += c01 * (1.f - tx) * ty;
+	result += c11 * tx * ty;
+	return result;
 }

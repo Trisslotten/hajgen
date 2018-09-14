@@ -1,7 +1,15 @@
 #version 440 core
 
+//#define WIREFRAME
+
+#ifdef WIREFRAME
+layout(triangles) in;
+layout(line_strip, max_vertices = 4) out;
+#else
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 3) out;
+#endif
+
 
 in vec2 tetex[];
 in vec3 teposition[];
@@ -23,7 +31,7 @@ void main()
 		getex = tetex[i];	
 		geposition = teposition[i];
 		genormal = tenormal[i];
-		//genormal = normal;
+		genormal = normal;
 		gl_Position = gl_in[i].gl_Position;
 		EmitVertex();
 	}

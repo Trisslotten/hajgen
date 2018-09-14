@@ -10,6 +10,13 @@ uniform vec2 hmPos;
 uniform sampler2D heightmap;
 uniform int eroded;
 uniform vec3 size;
+uniform vec3 cameraPos;
+
+uniform sampler2D texGround;
+uniform sampler2D texGrass;
+uniform sampler2D texRockGround;
+uniform sampler2D texSnow;
+uniform sampler2D texRockDisp;
 
 float CubicHermite (float A, float B, float C, float D, float t)
 {
@@ -68,17 +75,17 @@ vec3 sampleNormal(vec2 uv) {
 
 	vec4 h;
 	
-	/*
 	h[0] = texture(heightmap, uv + t * vec2(0,-1)).r;
 	h[1] = texture(heightmap, uv + t * vec2(-1,0)).r;
 	h[2] = texture(heightmap, uv + t * vec2(1, 0)).r;
 	h[3] = texture(heightmap, uv + t * vec2(0, 1)).r;
-	*/
 	
+	/*
 	h[0] = BicubicHermite(heightmap, uv + t * vec2(0,-1));
 	h[1] = BicubicHermite(heightmap, uv + t * vec2(-1,0));
 	h[2] = BicubicHermite(heightmap, uv + t * vec2(1, 0));
 	h[3] = BicubicHermite(heightmap, uv + t * vec2(0, 1));
+	*/
 	
 
 	float ratioX = t*size.x/(size.y);
@@ -145,6 +152,28 @@ float ambientOcclusion(vec2 uv, vec3 normal) {
 	return sqrt(occlusion);
 }
 
+float hash(vec3 p)  // replace this by something better
+{
+    p  = fract( p*0.3183099+.1 );
+	p *= 17.0;
+    return fract( p.x*p.y*p.z*(p.x+p.y+p.z) );
+}
+
+float noise( in vec3 x )
+{
+    vec3 p = floor(x);
+    vec3 f = fract(x);
+    f = f*f*(3.0-2.0*f);
+	
+    return mix(mix(mix( hash(p+vec3(0,0,0)), 
+                        hash(p+vec3(1,0,0)),f.x),
+                   mix( hash(p+vec3(0,1,0)), 
+                        hash(p+vec3(1,1,0)),f.x),f.y),
+               mix(mix( hash(p+vec3(0,0,1)), 
+                        hash(p+vec3(1,0,1)),f.x),
+                   mix( hash(p+vec3(0,1,1)), 
+                        hash(p+vec3(1,1,1)),f.x),f.y),f.z);
+}
 
 vec3 rgb(float r, float g, float b) {
 	return vec3(r, g, b) / 255.0;
@@ -156,7 +185,8 @@ const vec3 colorSand = rgb(194, 178, 128);
 const vec3 colorRock = rgb(81,79,86);
 const vec3 colorWater = rgb(30, 90, 190);
 
-vec3 chooseMat(vec3 pos, vec3 normal) {
+vec3 chooseMat(vec3 pos, vec3 normal) 
+{
 	
 	vec3 result = colorGrass;
 	float leaning = dot(normal, vec3(0,1,0));
@@ -178,20 +208,57 @@ vec3 chooseMat(vec3 pos, vec3 normal) {
 	hinterval = 0.005;
 	result = mix(result, colorRock, smoothstep(threshold + hinterval, threshold - hinterval, leaning));
 
-	result = colorGrass;
+	return result;
+}
 
-	if(eroded == 1) {
-		result = vec3(0,1,0);
-	} else {
-		result = vec3(1,0,0);
-	}
+
+vec3 chooseMatTex(vec3 pos, vec3 normal) 
+{
+	vec2 uvLarge = pos.xz/1000.0;
+	vec2 uvMedium = pos.xz/100.0;
+	vec2 uvClose = pos.xz;
+
+	vec3 colorGround = texture(texGround, uvLarge).rgb;
+	vec3 colorRockGround = texture(texRockGround, uvClose).rgb;
+	colorRockGround = mix(texture(texRockGround, uvMedium).rgb, colorRockGround, 0.7);
+	colorRockGround = mix(texture(texRockGround, uvLarge).rgb, colorRockGround, 0.7);
+	
+	vec3 colorGrass = texture(texGrass, uvClose).rgb;
+
+	
+
+	vec3 result = mix(colorGround, colorGrass, 0.5);
+
+
+	float leaning = dot(normal, vec3(0,1,0));
+	float snowHeight = size.y*0.8;
+
+
+	
+	float threshold = 0.9;
+	float hinterval = 0.01;
+	float weight = smoothstep( threshold + hinterval, threshold - hinterval, leaning);
+
+	result = mix(result, colorRockGround, weight);
+
+	/*
+	// snow
+	threshold = snowHeight;
+	hinterval = 5.0;
+	weight = smoothstep( threshold + hinterval, threshold - hinterval, pos.y);
+	result = mix(result, colorDarkGrassTex, weight);
+	*/
 
 	return result;
 }
 
-void main() {
+
+void main() 
+{
 	vec3 normal = sampleNormal(getex);
 	
+	//normal = genormal;
+
 
 	float ao = 1;//(1.0 - ambientOcclusion(getex, normal));
 
@@ -199,12 +266,14 @@ void main() {
 	float diffuse = 0.8*max(dot(normal, normalize(vec3(-1,1,1))), 0) * ao;
 	float ambient = 0.2 * ao;
 
-	vec3 material = chooseMat(geposition, normal);
+	vec3 material = chooseMatTex(geposition, normal);
 	
 	vec3 color;
 	color += material * diffuse;
 	color += material * ambient;
 
+	float len = length(cameraPos - geposition);
+	color = mix(color, vec3(0.96*rgb(47.0, 141.0, 255.0)), pow(smoothstep(0, 400000, len), 2));
 
 	out_color = vec4(color, 1.0);
 }

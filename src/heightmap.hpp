@@ -6,11 +6,22 @@
 #include "FastNoise.h"
 #include "camera.hpp"
 
-const glm::vec3 HEIGHTMAP_SIZE(1000.f, 2000.f, 1000.f);
-const size_t HEIGHTMAP_RESOLUTION = 128;
-const int HEIGHTMAP_MAX_ITERATIONS = 1 * HEIGHTMAP_RESOLUTION * HEIGHTMAP_RESOLUTION;
+const glm::vec3 HEIGHTMAP_SIZE(4000.f, 5000.f, 4000.f);
+const size_t HEIGHTMAP_RESOLUTION = 1024;
+const int HEIGHTMAP_MAX_ITERATIONS = 0 * HEIGHTMAP_RESOLUTION * HEIGHTMAP_RESOLUTION;
 
 size_t index(int x, int y, int size);
+
+
+class Image
+{
+	unsigned int width = 0, height = 0;
+	std::vector<unsigned char> image;
+public:
+	Image(const std::string& path);
+	glm::vec4 colorAt(int x, int y);
+	glm::vec4 colorAt(glm::vec2 pixel);
+};
 
 class Heightmap
 {
@@ -24,6 +35,9 @@ class Heightmap
 	int seed;
 	glm::ivec2 pos;
 
+	
+	float maxHeight;
+	float minHeight;
 	float* noisemap;
 	float* smoothTemp;
 	uint16_t* heightmap;
@@ -41,6 +55,7 @@ class Heightmap
 	struct
 	{
 		FastNoise mountains;
+		FastNoise mountains2;
 		FastNoise fields;
 		FastNoise biome;
 
@@ -75,10 +90,13 @@ public:
 
 	void smoothen();
 	void addDetail();
+	void addRockRoughness();
+
 
 	void upload();
 	void bind(ShaderProgram& shader);
 
+	void bindHeightmapTexture(unsigned int slot);
 
 	auto getSize()
 	{
